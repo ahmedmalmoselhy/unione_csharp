@@ -1,0 +1,13 @@
+# .NET .gitignore
+[Oo]bj/
+[Bb]in/
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.DS_Store
+appsettings.Local.json
+*.log
+*.tmp
