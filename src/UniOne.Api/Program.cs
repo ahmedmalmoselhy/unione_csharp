@@ -9,6 +9,7 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UniOne.Application;
+using UniOne.Application.Authorization;
 using UniOne.Infrastructure.Persistence;
 using UniOne.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
@@ -49,6 +50,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IPersonalAccessTokenRepository, PersonalAccessTokenRepository>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, ScopedRoleAuthorizationHandler>();
 
 // Add services to the container.
 builder.Services.AddControllers()
@@ -155,9 +157,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("StudentOnly", policy => policy.RequireRole("student"));
-    options.AddPolicy("ProfessorOnly", policy => policy.RequireRole("professor"));
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin", "faculty_admin", "department_admin"));
+    options.AddPolicy("StudentOnly", policy => policy.Requirements.Add(new ScopedRoleRequirement("student")));
+    options.AddPolicy("ProfessorOnly", policy => policy.Requirements.Add(new ScopedRoleRequirement("professor")));
+    options.AddPolicy("AdminOnly", policy => policy.Requirements.Add(new ScopedRoleRequirement("admin", "faculty_admin", "department_admin")));
 });
 
 // Validation

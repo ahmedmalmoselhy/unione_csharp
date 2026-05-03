@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using UniOne.Application.Contracts;
 using UniOne.Application.DTOs;
 using UniOne.Domain.Entities;
@@ -33,7 +34,10 @@ public class IdentityService : IIdentityService
         if (!result.Succeeded) return null;
 
         var roles = await _userManager.GetRolesAsync(user);
-        var token = _jwtTokenGenerator.GenerateToken(user, roles);
+        var userWithAssignments = await _userManager.Users
+            .Include(u => u.RoleAssignments)
+            .FirstAsync(u => u.Id == user.Id);
+        var token = _jwtTokenGenerator.GenerateToken(userWithAssignments, roles);
         await _tokenRepository.StoreTokenAsync(user.Id, "API token", token.AccessToken, token.ExpiresAt);
 
         return new AuthResponse(token.AccessToken, MapToDto(user, roles));

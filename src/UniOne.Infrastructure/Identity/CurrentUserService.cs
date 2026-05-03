@@ -26,6 +26,10 @@ public class CurrentUserService : ICurrentUserService
 
     public IEnumerable<string> Roles => _httpContextAccessor.HttpContext?.User?.FindAll(ClaimTypes.Role).Select(c => c.Value) ?? Enumerable.Empty<string>();
 
+    public IEnumerable<long> FacultyScopeIds => GetLongClaims("faculty_scope");
+
+    public IEnumerable<long> DepartmentScopeIds => GetLongClaims("department_scope");
+
     public bool MustChangePassword
     {
         get
@@ -33,5 +37,16 @@ public class CurrentUserService : ICurrentUserService
             var claim = _httpContextAccessor.HttpContext?.User?.FindFirstValue("must_change_password");
             return claim != null && bool.Parse(claim);
         }
+    }
+
+    private IEnumerable<long> GetLongClaims(string claimType)
+    {
+        return _httpContextAccessor.HttpContext?.User?
+            .FindAll(claimType)
+            .Select(claim => long.TryParse(claim.Value, out var value) ? value : (long?)null)
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
+            .Distinct()
+            ?? Enumerable.Empty<long>();
     }
 }

@@ -33,6 +33,19 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             claims.Add(new Claim(ClaimTypes.Role, role));
         }
 
+        foreach (var assignment in user.RoleAssignments.Where(assignment => assignment.RevokedAt == null))
+        {
+            if (assignment.FacultyId.HasValue)
+            {
+                claims.Add(new Claim("faculty_scope", assignment.FacultyId.Value.ToString()));
+            }
+
+            if (assignment.DepartmentId.HasValue)
+            {
+                claims.Add(new Claim("department_scope", assignment.DepartmentId.Value.ToString()));
+            }
+        }
+
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default_secret_key_for_development_only"));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var expires = DateTime.UtcNow.AddDays(Convert.ToDouble(_configuration["Jwt:ExpireDays"] ?? "7"));
