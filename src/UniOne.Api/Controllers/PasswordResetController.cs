@@ -33,9 +33,20 @@ public class PasswordResetController : ControllerBase
         var result = await _identityService.ResetPasswordAsync(request);
         if (!result.Succeeded)
         {
-            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+            return BadRequest(new ValidationProblemDetails(ToErrorDictionary(result.Errors))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred."
+            });
         }
 
         return Ok(new { message = "Your password has been reset successfully." });
+    }
+
+    private static Dictionary<string, string[]> ToErrorDictionary(IEnumerable<Microsoft.AspNetCore.Identity.IdentityError> errors)
+    {
+        return errors
+            .GroupBy(error => string.IsNullOrWhiteSpace(error.Code) ? "identity" : error.Code)
+            .ToDictionary(group => group.Key, group => group.Select(error => error.Description).ToArray());
     }
 }

@@ -25,7 +25,10 @@ public class AuthController : ControllerBase
         var response = await _identityService.LoginAsync(request);
         if (response == null)
         {
-            return Unauthorized(new { message = "Invalid email or password" });
+            return Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Unauthorized",
+                detail: "Invalid email or password.");
         }
 
         return Ok(response);
@@ -36,7 +39,13 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Logout()
     {
         var accessToken = GetBearerToken();
-        if (accessToken == null) return Unauthorized();
+        if (accessToken == null)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Unauthorized",
+                detail: "A bearer token is required.");
+        }
 
         await _identityService.LogoutAsync(GetUserId(), accessToken);
         return Ok(new { message = "Logged out successfully" });
@@ -48,7 +57,13 @@ public class AuthController : ControllerBase
     {
         var userId = GetUserId();
         var user = await _identityService.GetCurrentUserAsync(userId);
-        if (user == null) return Unauthorized();
+        if (user == null)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Unauthorized",
+                detail: "The current user could not be found.");
+        }
 
         return Ok(user);
     }
@@ -61,7 +76,11 @@ public class AuthController : ControllerBase
         var result = await _identityService.ChangePasswordAsync(userId, request);
         if (!result.Succeeded)
         {
-            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+            return BadRequest(new ValidationProblemDetails(ToErrorDictionary(result.Errors))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred."
+            });
         }
 
         return Ok(new { message = "Password updated successfully" });
@@ -73,7 +92,13 @@ public class AuthController : ControllerBase
     {
         var userId = GetUserId();
         var user = await _identityService.UpdateProfileAsync(userId, request);
-        if (user == null) return BadRequest(new { message = "Failed to update profile" });
+        if (user == null)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Profile update failed",
+                detail: "Failed to update profile.");
+        }
 
         return Ok(user);
     }
@@ -91,5 +116,12 @@ public class AuthController : ControllerBase
         return authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
             ? authorization["Bearer ".Length..].Trim()
             : null;
+    }
+
+    private static Dictionary<string, string[]> ToErrorDictionary(IEnumerable<Microsoft.AspNetCore.Identity.IdentityError> errors)
+    {
+        return errors
+            .GroupBy(error => string.IsNullOrWhiteSpace(error.Code) ? "identity" : error.Code)
+            .ToDictionary(group => group.Key, group => group.Select(error => error.Description).ToArray());
     }
 }

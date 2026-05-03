@@ -31,7 +31,13 @@ public class TokenController : ControllerBase
     {
         var userId = GetUserId();
         var result = await _identityService.RevokeTokenAsync(userId, tokenId);
-        if (!result) return NotFound();
+        if (!result)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Not Found",
+                detail: "Token was not found.");
+        }
 
         return Ok(new { message = "Token revoked" });
     }

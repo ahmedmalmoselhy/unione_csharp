@@ -75,6 +75,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
 
 // Health Checks
 builder.Services.AddHealthChecks();
@@ -106,6 +107,29 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
         options.Events = new JwtBearerEvents
         {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new ProblemDetails
+                {
+                    Status = StatusCodes.Status401Unauthorized,
+                    Title = "Unauthorized",
+                    Detail = "Authentication is required to access this resource.",
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.2"
+                });
+            },
+            OnForbidden = async context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(new ProblemDetails
+                {
+                    Status = StatusCodes.Status403Forbidden,
+                    Title = "Forbidden",
+                    Detail = "You do not have permission to access this resource.",
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4"
+                });
+            },
             OnTokenValidated = async context =>
             {
                 var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -149,6 +173,33 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+
+app.UseExceptionHandler();
+
+app.UseStatusCodePages(async context =>
+{
+    var response = context.HttpContext.Response;
+    if (response.HasStarted || response.ContentLength.HasValue || response.ContentType != null)
+    {
+        return;
+    }
+
+    var statusCode = response.StatusCode;
+    var title = statusCode switch
+    {
+        StatusCodes.Status404NotFound => "Not Found",
+        StatusCodes.Status403Forbidden => "Forbidden",
+        StatusCodes.Status401Unauthorized => "Unauthorized",
+        _ => "HTTP Error"
+    };
+
+    await response.WriteAsJsonAsync(new ProblemDetails
+    {
+        Status = statusCode,
+        Title = title,
+        Type = $"https://tools.ietf.org/html/rfc9110#section-15.5.{statusCode - 400 + 1}"
+    });
+});
 
 app.UseHttpsRedirection();
 
