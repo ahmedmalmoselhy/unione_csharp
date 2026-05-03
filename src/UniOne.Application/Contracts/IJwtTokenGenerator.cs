@@ -4,5 +4,7 @@ namespace UniOne.Application.Contracts;
 
 public interface IJwtTokenGenerator
 {
-    string GenerateToken(User user, IEnumerable<string> roles);
+    GeneratedJwtToken GenerateToken(User user, IEnumerable<string> roles);
 }
+
+public record GeneratedJwtToken(string AccessToken, DateTime ExpiresAt);

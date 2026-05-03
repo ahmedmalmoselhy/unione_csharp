@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using System.Security.Claims;
 using UniOne.Application.Contracts;
 
@@ -21,7 +22,7 @@ public class TokenController : ControllerBase
     public async Task<IActionResult> GetTokens()
     {
         var userId = GetUserId();
-        var tokens = await _identityService.GetActiveTokensAsync(userId);
+        var tokens = await _identityService.GetActiveTokensAsync(userId, GetBearerToken());
         return Ok(new { tokens });
     }
 
@@ -47,5 +48,13 @@ public class TokenController : ControllerBase
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return long.Parse(userIdClaim!);
+    }
+
+    private string? GetBearerToken()
+    {
+        var authorization = Request.Headers[HeaderNames.Authorization].ToString();
+        return authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? authorization["Bearer ".Length..].Trim()
+            : null;
     }
 }

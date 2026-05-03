@@ -6,13 +6,13 @@ namespace UniOne.Application.Contracts;
 public interface IIdentityService
 {
     Task<AuthResponse?> LoginAsync(LoginRequest request);
-    Task LogoutAsync();
+    Task LogoutAsync(long userId, string accessToken);
     Task<UserDto?> GetCurrentUserAsync(long userId);
     Task<bool> ForgotPasswordAsync(string email);
     Task<IdentityResult> ResetPasswordAsync(ResetPasswordRequest request);
     Task<IdentityResult> ChangePasswordAsync(long userId, ChangePasswordRequest request);
     Task<UserDto?> UpdateProfileAsync(long userId, UpdateProfileRequest request);
-    Task<IEnumerable<UserTokenDto>> GetActiveTokensAsync(long userId);
+    Task<IEnumerable<UserTokenDto>> GetActiveTokensAsync(long userId, string? currentAccessToken);
     Task<bool> RevokeTokenAsync(long userId, long tokenId);
     Task RevokeAllTokensAsync(long userId);
 }

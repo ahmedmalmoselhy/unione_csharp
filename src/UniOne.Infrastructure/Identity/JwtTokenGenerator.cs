@@ -17,7 +17,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         _configuration = configuration;
     }
 
-    public string GenerateToken(User user, IEnumerable<string> roles)
+    public GeneratedJwtToken GenerateToken(User user, IEnumerable<string> roles)
     {
         var claims = new List<Claim>
         {
@@ -45,6 +45,6 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             signingCredentials: creds
         );
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return new GeneratedJwtToken(new JwtSecurityTokenHandler().WriteToken(token), expires);
     }
 }

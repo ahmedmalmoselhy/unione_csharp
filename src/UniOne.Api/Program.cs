@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using FluentValidation;
@@ -85,6 +86,29 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "default_secret_key_for_development_only"))
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var authorization = context.Request.Headers.Authorization.ToString();
+                var accessToken = authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                    ? authorization["Bearer ".Length..].Trim()
+                    : null;
+
+                if (!long.TryParse(userIdClaim, out var userId) || string.IsNullOrEmpty(accessToken))
+                {
+                    context.Fail("Invalid bearer token.");
+                    return;
+                }
+
+                var tokenRepository = context.HttpContext.RequestServices.GetRequiredService<IPersonalAccessTokenRepository>();
+                if (!await tokenRepository.IsTokenActiveAsync(userId, accessToken))
+                {
+                    context.Fail("Token has been revoked.");
+                }
+            }
         };
     });
 

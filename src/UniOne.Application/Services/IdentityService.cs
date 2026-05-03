@@ -34,12 +34,14 @@ public class IdentityService : IIdentityService
 
         var roles = await _userManager.GetRolesAsync(user);
         var token = _jwtTokenGenerator.GenerateToken(user, roles);
+        await _tokenRepository.StoreTokenAsync(user.Id, "API token", token.AccessToken, token.ExpiresAt);
 
-        return new AuthResponse(token, MapToDto(user, roles));
+        return new AuthResponse(token.AccessToken, MapToDto(user, roles));
     }
 
-    public async Task LogoutAsync()
+    public async Task LogoutAsync(long userId, string accessToken)
     {
+        await _tokenRepository.RevokeTokenAsync(userId, accessToken);
         await _signInManager.SignOutAsync();
     }
 
@@ -109,9 +111,9 @@ public class IdentityService : IIdentityService
         return MapToDto(user, roles);
     }
 
-    public async Task<IEnumerable<UserTokenDto>> GetActiveTokensAsync(long userId)
+    public async Task<IEnumerable<UserTokenDto>> GetActiveTokensAsync(long userId, string? currentAccessToken)
     {
-        return await _tokenRepository.GetActiveTokensAsync(userId);
+        return await _tokenRepository.GetActiveTokensAsync(userId, currentAccessToken);
     }
 
     public async Task<bool> RevokeTokenAsync(long userId, long tokenId)

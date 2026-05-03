@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using System.Security.Claims;
 using UniOne.Application.Contracts;
 using UniOne.Application.DTOs;
@@ -34,7 +35,10 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Logout()
     {
-        await _identityService.LogoutAsync();
+        var accessToken = GetBearerToken();
+        if (accessToken == null) return Unauthorized();
+
+        await _identityService.LogoutAsync(GetUserId(), accessToken);
         return Ok(new { message = "Logged out successfully" });
     }
 
@@ -79,5 +83,13 @@ public class AuthController : ControllerBase
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userIdClaim)) return 0;
         return long.Parse(userIdClaim);
+    }
+
+    private string? GetBearerToken()
+    {
+        var authorization = Request.Headers[HeaderNames.Authorization].ToString();
+        return authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? authorization["Bearer ".Length..].Trim()
+            : null;
     }
 }
