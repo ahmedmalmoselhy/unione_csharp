@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\UniOne.Application\UniOne.Application.csproj" />
+    <ProjectReference Include="..\..\src\UniOne.Infrastructure\UniOne.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
