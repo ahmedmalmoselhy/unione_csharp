@@ -42,3 +42,17 @@ public class RoleAssignmentConfiguration : IEntityTypeConfiguration<RoleAssignme
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public class UserTokenConfiguration : IEntityTypeConfiguration<UserToken>
+{
+    public void Configure(EntityTypeBuilder<UserToken> builder)
+    {
+        builder.Property(ut => ut.Name).IsRequired().HasMaxLength(100);
+        builder.Property(ut => ut.TokenHash).IsRequired().HasMaxLength(256);
+
+        builder.HasOne(ut => ut.User)
+            .WithMany()
+            .HasForeignKey(ut => ut.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}

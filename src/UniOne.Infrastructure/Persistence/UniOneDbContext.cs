@@ -11,6 +11,7 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>
     }
 
     public DbSet<RoleAssignment> RoleAssignments { get; set; }
+    public DbSet<UserToken> UserTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -23,6 +24,7 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>
         builder.Entity<User>().ToTable("users");
         builder.Entity<Role>().ToTable("roles");
         builder.Entity<RoleAssignment>().ToTable("role_user");
+        builder.Entity<UserToken>().ToTable("personal_access_tokens");
 
         // Identity-specific renames (optional, but keeps schema cleaner)
         builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserRole<long>>().ToTable("user_roles_map");
