@@ -8,12 +8,15 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 {
     public void Configure(EntityTypeBuilder<User> builder)
     {
+        builder.HasQueryFilter(u => u.DeletedAt == null);
         builder.HasIndex(u => u.NationalId).IsUnique();
         builder.Property(u => u.FirstName).IsRequired().HasMaxLength(100);
         builder.Property(u => u.LastName).IsRequired().HasMaxLength(100);
         builder.Property(u => u.NationalId).IsRequired().HasMaxLength(50);
         builder.Property(u => u.Phone).HasMaxLength(20);
         builder.Property(u => u.Gender).HasConversion<int>();
+        builder.Property(u => u.IsActive).HasDefaultValue(true);
+        builder.Property(u => u.MustChangePassword).HasDefaultValue(false);
     }
 }
 
@@ -29,6 +32,7 @@ public class RoleAssignmentConfiguration : IEntityTypeConfiguration<RoleAssignme
 {
     public void Configure(EntityTypeBuilder<RoleAssignment> builder)
     {
+        builder.HasQueryFilter(ra => ra.User.DeletedAt == null);
         builder.HasIndex(ra => new { ra.UserId, ra.RoleId });
 
         builder.HasOne(ra => ra.User)
@@ -47,6 +51,7 @@ public class PersonalAccessTokenConfiguration : IEntityTypeConfiguration<Persona
 {
     public void Configure(EntityTypeBuilder<PersonalAccessToken> builder)
     {
+        builder.HasQueryFilter(ut => ut.User.DeletedAt == null);
         builder.Property(ut => ut.Name).IsRequired().HasMaxLength(100);
         builder.Property(ut => ut.TokenHash).IsRequired().HasMaxLength(256);
 
