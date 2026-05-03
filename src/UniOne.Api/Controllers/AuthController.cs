@@ -1,29 +1,59 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using UniOne.Application.Contracts;
+using UniOne.Application.DTOs;
 
 namespace UniOne.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/auth")]
 public class AuthController : ControllerBase
 {
-    [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginRequest request)
+    private readonly IIdentityService _identityService;
+
+    public AuthController(IIdentityService identityService)
     {
-        // Placeholder for login logic
-        return Ok(new { token = "placeholder_token", user = new { email = request.Email } });
+        _identityService = identityService;
+    }
+
+    [HttpPost("login")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    {
+        var response = await _identityService.LoginAsync(request);
+        if (response == null)
+        {
+            return Unauthorized(new { message = "Invalid email or password" });
+        }
+
+        return Ok(response);
     }
 
     [HttpPost("logout")]
-    public IActionResult Logout()
+    [Authorize]
+    public async Task<IActionResult> Logout()
     {
+        await _identityService.LogoutAsync();
         return Ok(new { message = "Logged out successfully" });
     }
 
     [HttpGet("me")]
-    public IActionResult Me()
+    [Authorize]
+    public async Task<IActionResult> Me()
     {
-        return Ok(new { user_id = "1", email = "user@example.com", roles = new[] { "student" } });
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !long.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var user = await _identityService.GetCurrentUserAsync(userId);
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(user);
     }
 }
-
-public record LoginRequest(string Email, string Password);

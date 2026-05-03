@@ -9,6 +9,9 @@ using Microsoft.EntityFrameworkCore;
 using UniOne.Infrastructure.Persistence;
 using UniOne.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
+using UniOne.Application.Contracts;
+using UniOne.Application.Services;
+using UniOne.Infrastructure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +39,10 @@ builder.Services.AddIdentity<User, Role>(options =>
 })
 .AddEntityFrameworkStores<UniOneDbContext>()
 .AddDefaultTokenProviders();
+
+// Application Services
+builder.Services.AddScoped<IIdentityService, IdentityService>();
+builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
 // Add services to the container.
 builder.Services.AddControllers()
