@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using UniOne.Application.DTOs;
 
 namespace UniOne.Application.Contracts;

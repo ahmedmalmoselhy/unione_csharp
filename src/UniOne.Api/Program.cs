@@ -43,6 +43,7 @@ builder.Services.AddIdentity<User, Role>(options =>
 // Application Services
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+builder.Services.AddScoped<IPersonalAccessTokenRepository, PersonalAccessTokenRepository>();
 
 // Add services to the container.
 builder.Services.AddControllers()

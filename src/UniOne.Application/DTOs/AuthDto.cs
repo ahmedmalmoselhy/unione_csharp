@@ -17,7 +17,6 @@ public record UserTokenDto(
 );
 
 public record UserDto(
-...
     long Id,
     string Email,
     string FirstName,

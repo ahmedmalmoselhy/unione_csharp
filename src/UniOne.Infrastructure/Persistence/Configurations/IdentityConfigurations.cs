@@ -43,9 +43,9 @@ public class RoleAssignmentConfiguration : IEntityTypeConfiguration<RoleAssignme
     }
 }
 
-public class UserTokenConfiguration : IEntityTypeConfiguration<UserToken>
+public class PersonalAccessTokenConfiguration : IEntityTypeConfiguration<PersonalAccessToken>
 {
-    public void Configure(EntityTypeBuilder<UserToken> builder)
+    public void Configure(EntityTypeBuilder<PersonalAccessToken> builder)
     {
         builder.Property(ut => ut.Name).IsRequired().HasMaxLength(100);
         builder.Property(ut => ut.TokenHash).IsRequired().HasMaxLength(256);
