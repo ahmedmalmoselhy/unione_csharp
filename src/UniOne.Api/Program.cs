@@ -6,7 +6,9 @@ using System.Text;
 using System.Text.Json.Serialization;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using UniOne.Application;
 using UniOne.Infrastructure.Persistence;
 using UniOne.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
@@ -55,6 +57,21 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var problemDetails = new ValidationProblemDetails(context.ModelState)
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "One or more validation errors occurred.",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1"
+        };
+
+        return new BadRequestObjectResult(problemDetails);
+    };
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
@@ -121,7 +138,7 @@ builder.Services.AddAuthorization(options =>
 
 // Validation
 builder.Services.AddFluentValidationAutoValidation();
-// builder.Services.AddValidatorsFromAssemblyContaining<IApplicationMarker>(); // Will add this when Application project has markers
+builder.Services.AddValidatorsFromAssemblyContaining<IApplicationAssemblyMarker>();
 
 var app = builder.Build();
 
