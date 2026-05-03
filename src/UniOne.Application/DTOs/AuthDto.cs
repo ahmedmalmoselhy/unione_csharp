@@ -8,6 +8,14 @@ public record ForgotPasswordRequest(string Email);
 
 public record ResetPasswordRequest(string Email, string Token, string Password);
 
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
+public record UpdateProfileRequest(
+    string? Phone,
+    DateOnly? DateOfBirth,
+    string? AvatarPath
+);
+
 public record UserTokenDto(
     long Id,
     string Name,

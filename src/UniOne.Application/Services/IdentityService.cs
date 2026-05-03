@@ -27,23 +27,15 @@ public class IdentityService : IIdentityService
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
-        if (user == null) return null;
+        if (user == null || !user.IsActive) return null;
 
         var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, false);
         if (!result.Succeeded) return null;
 
         var roles = await _userManager.GetRolesAsync(user);
-        var token = _jwtTokenGenerator.GenerateToken(user.Id, user.Email!, roles);
+        var token = _jwtTokenGenerator.GenerateToken(user, roles);
 
-        return new AuthResponse(token, new UserDto(
-            user.Id,
-            user.Email!,
-            user.FirstName,
-            user.LastName,
-            user.NationalId,
-            user.Phone,
-            roles
-        ));
+        return new AuthResponse(token, MapToDto(user, roles));
     }
 
     public async Task LogoutAsync()
@@ -57,16 +49,7 @@ public class IdentityService : IIdentityService
         if (user == null) return null;
 
         var roles = await _userManager.GetRolesAsync(user);
-
-        return new UserDto(
-            user.Id,
-            user.Email!,
-            user.FirstName,
-            user.LastName,
-            user.NationalId,
-            user.Phone,
-            roles
-        );
+        return MapToDto(user, roles);
     }
 
     public async Task<bool> ForgotPasswordAsync(string email)
@@ -75,8 +58,7 @@ public class IdentityService : IIdentityService
         if (user == null) return false;
 
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-
-        // TODO: Send email with token. For now, we just return true.
+        // TODO: Send email
         return true;
     }
 
@@ -89,6 +71,42 @@ public class IdentityService : IIdentityService
         }
 
         return await _userManager.ResetPasswordAsync(user, request.Token, request.Password);
+    }
+
+    public async Task<IdentityResult> ChangePasswordAsync(long userId, ChangePasswordRequest request)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            return IdentityResult.Failed(new IdentityError { Description = "User not found" });
+        }
+
+        var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (result.Succeeded)
+        {
+            user.MustChangePassword = false;
+            await _userManager.UpdateAsync(user);
+        }
+
+        return result;
+    }
+
+    public async Task<UserDto?> UpdateProfileAsync(long userId, UpdateProfileRequest request)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null) return null;
+
+        if (request.Phone != null) user.Phone = request.Phone;
+        if (request.DateOfBirth != null) user.DateOfBirth = request.DateOfBirth;
+        if (request.AvatarPath != null) user.AvatarPath = request.AvatarPath;
+
+        user.UpdatedAt = DateTime.UtcNow;
+        var result = await _userManager.UpdateAsync(user);
+
+        if (!result.Succeeded) return null;
+
+        var roles = await _userManager.GetRolesAsync(user);
+        return MapToDto(user, roles);
     }
 
     public async Task<IEnumerable<UserTokenDto>> GetActiveTokensAsync(long userId)
@@ -104,5 +122,18 @@ public class IdentityService : IIdentityService
     public async Task RevokeAllTokensAsync(long userId)
     {
         await _tokenRepository.RevokeAllTokensAsync(userId);
+    }
+
+    private UserDto MapToDto(User user, IEnumerable<string> roles)
+    {
+        return new UserDto(
+            user.Id,
+            user.Email!,
+            user.FirstName,
+            user.LastName,
+            user.NationalId,
+            user.Phone,
+            roles
+        );
     }
 }

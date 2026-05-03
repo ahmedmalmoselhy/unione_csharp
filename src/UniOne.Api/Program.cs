@@ -41,6 +41,8 @@ builder.Services.AddIdentity<User, Role>(options =>
 .AddDefaultTokenProviders();
 
 // Application Services
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IPersonalAccessTokenRepository, PersonalAccessTokenRepository>();
@@ -86,7 +88,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("StudentOnly", policy => policy.RequireRole("student"));
+    options.AddPolicy("ProfessorOnly", policy => policy.RequireRole("professor"));
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin", "faculty_admin", "department_admin"));
+});
 
 // Validation
 builder.Services.AddFluentValidationAutoValidation();
@@ -108,6 +115,8 @@ app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<UniOne.Api.Middleware.ForcePasswordChangeMiddleware>();
 
 app.MapControllers();
 app.MapHealthChecks("/api/health");

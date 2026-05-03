@@ -42,18 +42,42 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Me()
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userIdClaim) || !long.TryParse(userIdClaim, out var userId))
-        {
-            return Unauthorized();
-        }
-
+        var userId = GetUserId();
         var user = await _identityService.GetCurrentUserAsync(userId);
-        if (user == null)
-        {
-            return NotFound();
-        }
+        if (user == null) return Unauthorized();
 
         return Ok(user);
+    }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userId = GetUserId();
+        var result = await _identityService.ChangePasswordAsync(userId, request);
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+        }
+
+        return Ok(new { message = "Password updated successfully" });
+    }
+
+    [HttpPatch("profile")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+    {
+        var userId = GetUserId();
+        var user = await _identityService.UpdateProfileAsync(userId, request);
+        if (user == null) return BadRequest(new { message = "Failed to update profile" });
+
+        return Ok(user);
+    }
+
+    private long GetUserId()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim)) return 0;
+        return long.Parse(userIdClaim);
     }
 }
