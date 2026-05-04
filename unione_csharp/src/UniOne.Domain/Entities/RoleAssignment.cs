@@ -13,5 +13,6 @@ public class RoleAssignment
     // Navigation properties
     public virtual User User { get; set; } = null!;
     public virtual Role Role { get; set; } = null!;
-    // Note: Faculty and Department navigation properties will be added in Phase 2
+    public virtual Faculty? Faculty { get; set; }
+    public virtual Department? Department { get; set; }
 }
