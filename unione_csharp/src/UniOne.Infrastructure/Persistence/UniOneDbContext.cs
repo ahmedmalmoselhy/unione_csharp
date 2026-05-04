@@ -18,6 +18,10 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>, IApplication
     public DbSet<Department> Departments { get; set; }
     public DbSet<UniversityVicePresident> UniversityVicePresidents { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<Professor> Professors { get; set; }
+    public DbSet<Employee> Employees { get; set; }
+    public DbSet<Student> Students { get; set; }
+    public DbSet<StudentDepartmentHistory> StudentDepartmentHistories { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -36,6 +40,10 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>, IApplication
         builder.Entity<Department>().ToTable("departments");
         builder.Entity<UniversityVicePresident>().ToTable("university_vice_presidents");
         builder.Entity<AuditLog>().ToTable("audit_logs");
+        builder.Entity<Professor>().ToTable("professors");
+        builder.Entity<Employee>().ToTable("employees");
+        builder.Entity<Student>().ToTable("students");
+        builder.Entity<StudentDepartmentHistory>().ToTable("student_department_history");
 
         // Identity-specific renames (optional, but keeps schema cleaner)
         builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserRole<long>>().ToTable("user_roles_map");

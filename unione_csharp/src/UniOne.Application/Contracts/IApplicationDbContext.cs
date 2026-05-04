@@ -14,6 +14,10 @@ public interface IApplicationDbContext
     DbSet<Department> Departments { get; }
     DbSet<UniversityVicePresident> UniversityVicePresidents { get; }
     DbSet<AuditLog> AuditLogs { get; }
+    DbSet<Professor> Professors { get; }
+    DbSet<Employee> Employees { get; }
+    DbSet<Student> Students { get; }
+    DbSet<StudentDepartmentHistory> StudentDepartmentHistories { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
