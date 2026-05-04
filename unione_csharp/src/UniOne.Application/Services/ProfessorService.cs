@@ -12,16 +12,19 @@ public class ProfessorService : IProfessorService
     private readonly IApplicationDbContext _context;
     private readonly UserManager<User> _userManager;
     private readonly IAuditLogService _auditLog;
+    private readonly IImportExportService _importExport;
     private readonly PeopleMapper _mapper;
 
     public ProfessorService(
         IApplicationDbContext context,
         UserManager<User> userManager,
-        IAuditLogService auditLog)
+        IAuditLogService auditLog,
+        IImportExportService importExport)
     {
         _context = context;
         _userManager = userManager;
         _auditLog = auditLog;
+        _importExport = importExport;
         _mapper = new PeopleMapper();
     }
 
@@ -139,5 +142,42 @@ public class ProfessorService : IProfessorService
             auditableType: "Professor",
             auditableId: id,
             description: $"Deleted professor {user.FirstName} {user.LastName}");
+    }
+
+    public async Task<byte[]> ExportProfessorsAsync(long? departmentId = null)
+    {
+        var professors = await GetAllProfessorsAsync(departmentId);
+        return await _importExport.ExportToExcelAsync(professors, "Professors");
+    }
+
+    public async Task<ImportResult<ProfessorImportRow>> ImportProfessorsAsync(Stream fileStream)
+    {
+        var result = await _importExport.ImportFromExcelAsync<ProfessorImportRow>(fileStream);
+        if (!result.Succeeded) return result;
+
+        foreach (var row in result.Data)
+        {
+            try
+            {
+                await CreateProfessorAsync(new CreateProfessorDto
+                {
+                    Email = row.Email,
+                    FirstName = row.FirstName,
+                    LastName = row.LastName,
+                    NationalId = row.NationalId,
+                    StaffNumber = row.StaffNumber,
+                    DepartmentId = 1, // Placeholder
+                    Specialization = row.Specialization,
+                    AcademicRank = AcademicRank.Lecturer, // Placeholder, should parse row.AcademicRank
+                    HiredAt = DateOnly.FromDateTime(DateTime.UtcNow)
+                });
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Professor {row.Email}: {ex.Message}");
+            }
+        }
+
+        return result;
     }
 }

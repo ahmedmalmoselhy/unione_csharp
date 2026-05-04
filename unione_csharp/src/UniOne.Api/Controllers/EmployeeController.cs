@@ -79,4 +79,11 @@ public class EmployeeController : ControllerBase
             return NotFound();
         }
     }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export([FromQuery] long? departmentId)
+    {
+        var fileBytes = await _employeeService.ExportEmployeesAsync(departmentId);
+        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "employees.xlsx");
+    }
 }

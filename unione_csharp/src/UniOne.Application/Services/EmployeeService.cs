@@ -12,16 +12,19 @@ public class EmployeeService : IEmployeeService
     private readonly IApplicationDbContext _context;
     private readonly UserManager<User> _userManager;
     private readonly IAuditLogService _auditLog;
+    private readonly IImportExportService _importExport;
     private readonly PeopleMapper _mapper;
 
     public EmployeeService(
         IApplicationDbContext context,
         UserManager<User> userManager,
-        IAuditLogService auditLog)
+        IAuditLogService auditLog,
+        IImportExportService importExport)
     {
         _context = context;
         _userManager = userManager;
         _auditLog = auditLog;
+        _importExport = importExport;
         _mapper = new PeopleMapper();
     }
 
@@ -140,5 +143,11 @@ public class EmployeeService : IEmployeeService
             auditableType: "Employee",
             auditableId: id,
             description: $"Deleted employee {user.FirstName} {user.LastName}");
+    }
+
+    public async Task<byte[]> ExportEmployeesAsync(long? departmentId = null)
+    {
+        var employees = await GetAllEmployeesAsync(departmentId);
+        return await _importExport.ExportToExcelAsync(employees, "Employees");
     }
 }

@@ -9,4 +9,5 @@ public interface IEmployeeService
     Task<EmployeeDto> CreateEmployeeAsync(CreateEmployeeDto dto);
     Task<EmployeeDto> UpdateEmployeeAsync(long id, UpdateEmployeeDto dto);
     Task DeleteEmployeeAsync(long id);
+    Task<byte[]> ExportEmployeesAsync(long? departmentId = null);
 }

@@ -79,4 +79,27 @@ public class ProfessorController : ControllerBase
             return NotFound();
         }
     }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export([FromQuery] long? departmentId)
+    {
+        var fileBytes = await _professorService.ExportProfessorsAsync(departmentId);
+        return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "professors.xlsx");
+    }
+
+    [HttpPost("import")]
+    public async Task<IActionResult> Import(IFormFile file)
+    {
+        if (file == null || file.Length == 0) return BadRequest("No file uploaded");
+
+        using var stream = file.OpenReadStream();
+        var result = await _professorService.ImportProfessorsAsync(stream);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { errors = result.Errors });
+        }
+
+        return Ok(new { message = "Import completed successfully", count = result.Data.Count });
+    }
 }

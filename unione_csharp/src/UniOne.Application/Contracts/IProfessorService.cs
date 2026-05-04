@@ -9,4 +9,6 @@ public interface IProfessorService
     Task<ProfessorDto> CreateProfessorAsync(CreateProfessorDto dto);
     Task<ProfessorDto> UpdateProfessorAsync(long id, UpdateProfessorDto dto);
     Task DeleteProfessorAsync(long id);
+    Task<byte[]> ExportProfessorsAsync(long? departmentId = null);
+    Task<ImportResult<ProfessorImportRow>> ImportProfessorsAsync(Stream fileStream);
 }

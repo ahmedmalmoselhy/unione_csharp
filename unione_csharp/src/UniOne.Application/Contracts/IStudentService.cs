@@ -10,4 +10,6 @@ public interface IStudentService
     Task<StudentDto> UpdateStudentAsync(long id, UpdateStudentDto dto);
     Task DeleteStudentAsync(long id);
     Task TransferStudentAsync(long id, TransferStudentDto dto);
+    Task<byte[]> ExportStudentsAsync(long? facultyId = null, long? departmentId = null);
+    Task<ImportResult<StudentImportRow>> ImportStudentsAsync(Stream fileStream);
 }
