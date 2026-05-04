@@ -33,6 +33,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<UniOneDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<UniOneDbContext>());
+
 // Identity Configuration
 builder.Services.AddIdentity<User, Role>(options =>
 {
@@ -50,6 +52,12 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IPersonalAccessTokenRepository, PersonalAccessTokenRepository>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IUniversityService, UniversityService>();
+builder.Services.AddScoped<IFacultyService, FacultyService>();
+builder.Services.AddScoped<IDepartmentService, DepartmentService>();
+builder.Services.AddScoped<IRoleAssignmentService, RoleAssignmentService>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, ScopedRoleAuthorizationHandler>();
 
 // Add services to the container.

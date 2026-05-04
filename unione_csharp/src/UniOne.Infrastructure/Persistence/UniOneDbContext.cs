@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using UniOne.Application.Contracts;
 using UniOne.Domain.Entities;
 
 namespace UniOne.Infrastructure.Persistence;
 
-public class UniOneDbContext : IdentityDbContext<User, Role, long>
+public class UniOneDbContext : IdentityDbContext<User, Role, long>, IApplicationDbContext
 {
     public UniOneDbContext(DbContextOptions<UniOneDbContext> options) : base(options)
     {
@@ -16,6 +17,7 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>
     public DbSet<Faculty> Faculties { get; set; }
     public DbSet<Department> Departments { get; set; }
     public DbSet<UniversityVicePresident> UniversityVicePresidents { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -33,6 +35,7 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>
         builder.Entity<Faculty>().ToTable("faculties");
         builder.Entity<Department>().ToTable("departments");
         builder.Entity<UniversityVicePresident>().ToTable("university_vice_presidents");
+        builder.Entity<AuditLog>().ToTable("audit_logs");
 
         // Identity-specific renames (optional, but keeps schema cleaner)
         builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserRole<long>>().ToTable("user_roles_map");
