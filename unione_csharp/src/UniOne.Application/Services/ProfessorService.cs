@@ -4,6 +4,7 @@ using UniOne.Application.Contracts;
 using UniOne.Application.DTOs;
 using UniOne.Application.Mapping;
 using UniOne.Domain.Entities;
+using UniOne.Domain.Enums;
 
 namespace UniOne.Application.Services;
 

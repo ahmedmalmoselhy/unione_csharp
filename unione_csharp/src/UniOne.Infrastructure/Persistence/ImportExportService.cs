@@ -35,8 +35,18 @@ public class ImportExportService : IImportExportService
         try
         {
             using var workbook = new XLWorkbook(fileStream);
-            var worksheet = workbook.Worksheets.First();
+            var worksheet = workbook.Worksheets.FirstOrDefault();
+            if (worksheet == null)
+            {
+                result.Errors.Add("Excel file contains no worksheets.");
+                return result;
+            }
             var range = worksheet.RangeUsed();
+            if (range == null)
+            {
+                result.Errors.Add("Excel worksheet is empty.");
+                return result;
+            }
             var rows = range.RowsUsed().Skip(1); // Skip header
 
             var properties = typeof(T).GetProperties();
