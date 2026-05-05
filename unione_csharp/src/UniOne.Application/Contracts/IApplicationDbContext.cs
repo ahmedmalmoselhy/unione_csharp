@@ -18,6 +18,13 @@ public interface IApplicationDbContext
     DbSet<Employee> Employees { get; }
     DbSet<Student> Students { get; }
     DbSet<StudentDepartmentHistory> StudentDepartmentHistories { get; }
+    DbSet<AcademicTerm> AcademicTerms { get; }
+    DbSet<Course> Courses { get; }
+    DbSet<CoursePrerequisite> CoursePrerequisites { get; }
+    DbSet<DepartmentCourse> DepartmentCourses { get; }
+    DbSet<Section> Sections { get; }
+    DbSet<Enrollment> Enrollments { get; }
+    DbSet<EnrollmentWaitlist> EnrollmentWaitlists { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

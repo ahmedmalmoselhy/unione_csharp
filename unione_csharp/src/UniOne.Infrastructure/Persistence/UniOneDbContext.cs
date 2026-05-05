@@ -22,6 +22,13 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>, IApplication
     public DbSet<Employee> Employees { get; set; }
     public DbSet<Student> Students { get; set; }
     public DbSet<StudentDepartmentHistory> StudentDepartmentHistories { get; set; }
+    public DbSet<AcademicTerm> AcademicTerms { get; set; }
+    public DbSet<Course> Courses { get; set; }
+    public DbSet<CoursePrerequisite> CoursePrerequisites { get; set; }
+    public DbSet<DepartmentCourse> DepartmentCourses { get; set; }
+    public DbSet<Section> Sections { get; set; }
+    public DbSet<Enrollment> Enrollments { get; set; }
+    public DbSet<EnrollmentWaitlist> EnrollmentWaitlists { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -44,6 +51,44 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>, IApplication
         builder.Entity<Employee>().ToTable("employees");
         builder.Entity<Student>().ToTable("students");
         builder.Entity<StudentDepartmentHistory>().ToTable("student_department_history");
+        builder.Entity<AcademicTerm>().ToTable("academic_terms");
+        builder.Entity<Course>().ToTable("courses");
+        builder.Entity<Section>().ToTable("sections");
+        builder.Entity<Enrollment>().ToTable("enrollments");
+        builder.Entity<EnrollmentWaitlist>().ToTable("enrollment_waitlist");
+
+        // Many-to-many relationships
+        builder.Entity<CoursePrerequisite>()
+            .ToTable("course_prerequisites")
+            .HasKey(cp => new { cp.CourseId, cp.PrerequisiteId });
+
+        builder.Entity<DepartmentCourse>()
+            .ToTable("department_course")
+            .HasKey(dc => new { dc.DepartmentId, dc.CourseId });
+
+        builder.Entity<CoursePrerequisite>()
+            .HasOne(cp => cp.Course)
+            .WithMany(c => c.Prerequisites)
+            .HasForeignKey(cp => cp.CourseId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<CoursePrerequisite>()
+            .HasOne(cp => cp.Prerequisite)
+            .WithMany(c => c.Dependents)
+            .HasForeignKey(cp => cp.PrerequisiteId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DepartmentCourse>()
+            .HasOne(dc => dc.Department)
+            .WithMany()
+            .HasForeignKey(dc => dc.DepartmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<DepartmentCourse>()
+            .HasOne(dc => dc.Course)
+            .WithMany(c => c.DepartmentCourses)
+            .HasForeignKey(dc => dc.CourseId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Identity-specific renames (optional, but keeps schema cleaner)
         builder.Entity<Microsoft.AspNetCore.Identity.IdentityUserRole<long>>().ToTable("user_roles_map");
