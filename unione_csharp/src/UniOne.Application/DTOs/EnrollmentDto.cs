@@ -12,7 +12,7 @@ public class EnrollmentDto
     public string CourseCode { get; set; } = null!;
     public long AcademicTermId { get; set; }
     public string AcademicTermName { get; set; } = null!;
-    public EnrollmentStatus Status { get; set; }
+    public EnrollmentRecordStatus Status { get; set; }
     public DateTime RegisteredAt { get; set; }
     public DateTime? DroppedAt { get; set; }
 }

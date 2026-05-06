@@ -15,11 +15,12 @@ public partial class CatalogMapper
     public partial Course ToEntity(CreateCourseDto dto);
     public partial void UpdateCourse(UpdateCourseDto dto, Course course);
 
-    [MapProperty(nameof(Section.Course.Name), nameof(SectionDto.CourseName))]
-    [MapProperty(nameof(Section.Course.Code), nameof(SectionDto.CourseCode))]
-    [MapProperty(nameof(Section.Professor.User.FirstName), nameof(SectionDto.ProfessorFullName))]
-    [MapProperty(nameof(Section.AcademicTerm.Name), nameof(SectionDto.AcademicTermName))]
+    [MapProperty("Course.Name", nameof(SectionDto.CourseName))]
+    [MapProperty("Course.Code", nameof(SectionDto.CourseCode))]
+    [MapProperty("Professor", nameof(SectionDto.ProfessorFullName))]
+    [MapProperty("AcademicTerm.Name", nameof(SectionDto.AcademicTermName))]
     public partial SectionDto ToDto(Section section);
+
     public partial Section ToEntity(CreateSectionDto dto);
     public partial void UpdateSection(UpdateSectionDto dto, Section section);
 

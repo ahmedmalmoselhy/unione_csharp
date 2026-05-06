@@ -209,6 +209,8 @@ public class EnrollmentService : IEnrollmentService
     {
         var enrollments = await _context.Enrollments
             .Include(e => e.Student).ThenInclude(s => s.User)
+            .Include(e => e.Section).ThenInclude(s => s.Course)
+            .Include(e => e.AcademicTerm)
             .Where(e => e.SectionId == sectionId && e.Status != EnrollmentRecordStatus.Dropped)
             .ToListAsync();
 
@@ -218,6 +220,10 @@ public class EnrollmentService : IEnrollmentService
             StudentId = e.StudentId,
             StudentName = $"{e.Student.User.FirstName} {e.Student.User.LastName}",
             SectionId = e.SectionId,
+            CourseName = e.Section.Course.Name,
+            CourseCode = e.Section.Course.Code,
+            AcademicTermId = e.AcademicTermId,
+            AcademicTermName = e.AcademicTerm.Name,
             Status = e.Status,
             RegisteredAt = e.RegisteredAt
         });
