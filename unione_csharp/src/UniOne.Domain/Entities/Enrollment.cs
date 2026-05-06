@@ -8,7 +8,7 @@ public class Enrollment
     public long StudentId { get; set; }
     public long SectionId { get; set; }
     public long AcademicTermId { get; set; }
-    public EnrollmentStatus Status { get; set; } = EnrollmentStatus.Active;
+    public EnrollmentRecordStatus Status { get; set; } = EnrollmentRecordStatus.Registered;
     public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
     public DateTime? DroppedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
