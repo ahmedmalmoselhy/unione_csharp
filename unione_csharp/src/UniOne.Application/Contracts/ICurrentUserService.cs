@@ -7,5 +7,8 @@ public interface ICurrentUserService
     IEnumerable<string> Roles { get; }
     IEnumerable<long> FacultyScopeIds { get; }
     IEnumerable<long> DepartmentScopeIds { get; }
+    long? StudentId { get; }
+    long? ProfessorId { get; }
+    long? EmployeeId { get; }
     bool MustChangePassword { get; }
 }

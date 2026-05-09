@@ -64,6 +64,8 @@ builder.Services.AddScoped<IProfessorService, ProfessorService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IAcademicCatalogService, AcademicCatalogService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
+builder.Services.AddScoped<IGradeService, GradeService>();
+builder.Services.AddScoped<IGpaService, GpaService>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, ScopedRoleAuthorizationHandler>();
 
 // Add services to the container.

@@ -243,4 +243,91 @@ public class StudentService : IStudentService
 
         return result;
     }
+
+    public async Task<TranscriptDto> GetTranscriptAsync(long studentId)
+    {
+        var student = await GetStudentByIdAsync(studentId);
+        var grades = await _context.Grades
+            .Include(g => g.Section)
+            .ThenInclude(s => s.Course)
+            .Include(g => g.Section)
+            .ThenInclude(s => s.AcademicTerm)
+            .Where(g => g.StudentId == studentId && g.IsPublished)
+            .ToListAsync();
+
+        var termGpas = await _context.StudentTermGpas
+            .Where(tg => tg.StudentId == studentId)
+            .ToDictionaryAsync(tg => tg.AcademicTermId);
+
+        var transcript = new TranscriptDto
+        {
+            Student = student,
+            CumulativeGpa = student.Gpa ?? 0,
+            TotalCreditsEarned = grades.Where(g => g.GradeLetter != "F").Sum(g => g.Section.Course.CreditHours),
+            Terms = grades.GroupBy(g => g.Section.AcademicTermId)
+                .Select(g =>
+                {
+                    var term = g.First().Section.AcademicTerm;
+                    var termGpa = termGpas.GetValueOrDefault(term.Id);
+                    return new TranscriptTermDto
+                    {
+                        AcademicTermId = term.Id,
+                        TermName = term.Name,
+                        TermGpa = termGpa?.TermGpa ?? 0,
+                        CreditsAttempted = termGpa?.CreditsAttempted ?? 0,
+                        CreditsEarned = termGpa?.CreditsEarned ?? 0,
+                        Courses = g.Select(c => new TranscriptCourseDto
+                        {
+                            CourseCode = c.Section.Course.Code,
+                            CourseName = c.Section.Course.Name,
+                            CreditHours = c.Section.Course.CreditHours,
+                            GradeLetter = c.GradeLetter,
+                            GradePoints = c.GradePoints
+                        }).ToList()
+                    };
+                }).OrderBy(t => t.AcademicTermId).ToList()
+        };
+
+        return transcript;
+    }
+
+    public async Task<ScheduleDto> GetScheduleAsync(long studentId, long? academicTermId = null)
+    {
+        var query = _context.Enrollments
+            .Include(e => e.Section)
+            .ThenInclude(s => s.Course)
+            .Include(e => e.Section)
+            .ThenInclude(s => s.Professor)
+            .ThenInclude(p => p.User)
+            .Where(e => e.StudentId == studentId && e.Status == EnrollmentRecordStatus.Registered);
+
+        if (academicTermId.HasValue)
+        {
+            query = query.Where(e => e.AcademicTermId == academicTermId.Value);
+        }
+        else
+        {
+            // If no term specified, get active term(s)
+            var activeTermIds = await _context.AcademicTerms
+                .Where(t => t.IsActive)
+                .Select(t => t.Id)
+                .ToListAsync();
+            query = query.Where(e => e.AcademicTermId != 0 && activeTermIds.Contains(e.AcademicTermId));
+        }
+
+        var enrollments = await query.ToListAsync();
+
+        return new ScheduleDto
+        {
+            Items = enrollments.Select(e => new ScheduleItemDto
+            {
+                SectionId = e.SectionId,
+                CourseCode = e.Section.Course.Code,
+                CourseName = e.Section.Course.Name,
+                SectionNumber = e.Section.SectionNumber,
+                ProfessorName = $"{e.Section.Professor.User.FirstName} {e.Section.Professor.User.LastName}",
+                Schedule = e.Section.Schedule
+            }).ToList()
+        };
+    }
 }

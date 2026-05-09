@@ -3,6 +3,7 @@ namespace UniOne.Domain.Entities;
 public class Section
 {
     public long Id { get; set; }
+    public required string SectionNumber { get; set; }
     public long CourseId { get; set; }
     public long ProfessorId { get; set; }
     public long AcademicTermId { get; set; }

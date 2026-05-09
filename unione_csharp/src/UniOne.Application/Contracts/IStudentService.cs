@@ -12,4 +12,6 @@ public interface IStudentService
     Task TransferStudentAsync(long id, TransferStudentDto dto);
     Task<byte[]> ExportStudentsAsync(long? facultyId = null, long? departmentId = null);
     Task<ImportResult<StudentImportRow>> ImportStudentsAsync(Stream fileStream);
+    Task<TranscriptDto> GetTranscriptAsync(long studentId);
+    Task<ScheduleDto> GetScheduleAsync(long studentId, long? academicTermId = null);
 }

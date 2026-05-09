@@ -30,6 +30,33 @@ public class CurrentUserService : ICurrentUserService
 
     public IEnumerable<long> DepartmentScopeIds => GetLongClaims("department_scope");
 
+    public long? StudentId
+    {
+        get
+        {
+            var id = _httpContextAccessor.HttpContext?.User?.FindFirstValue("student_id");
+            return string.IsNullOrEmpty(id) ? null : long.Parse(id);
+        }
+    }
+
+    public long? ProfessorId
+    {
+        get
+        {
+            var id = _httpContextAccessor.HttpContext?.User?.FindFirstValue("professor_id");
+            return string.IsNullOrEmpty(id) ? null : long.Parse(id);
+        }
+    }
+
+    public long? EmployeeId
+    {
+        get
+        {
+            var id = _httpContextAccessor.HttpContext?.User?.FindFirstValue("employee_id");
+            return string.IsNullOrEmpty(id) ? null : long.Parse(id);
+        }
+    }
+
     public bool MustChangePassword
     {
         get

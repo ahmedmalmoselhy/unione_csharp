@@ -3,6 +3,7 @@ namespace UniOne.Application.DTOs;
 public class SectionDto
 {
     public long Id { get; set; }
+    public string SectionNumber { get; set; } = null!;
     public long CourseId { get; set; }
     public string CourseName { get; set; } = null!;
     public string CourseCode { get; set; } = null!;
@@ -18,6 +19,7 @@ public class SectionDto
 
 public class CreateSectionDto
 {
+    public required string SectionNumber { get; set; }
     public long CourseId { get; set; }
     public long ProfessorId { get; set; }
     public long AcademicTermId { get; set; }

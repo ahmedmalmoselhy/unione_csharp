@@ -29,6 +29,8 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>, IApplication
     public DbSet<Section> Sections { get; set; }
     public DbSet<Enrollment> Enrollments { get; set; }
     public DbSet<EnrollmentWaitlist> EnrollmentWaitlists { get; set; }
+    public DbSet<Grade> Grades { get; set; }
+    public DbSet<StudentTermGpa> StudentTermGpas { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -56,6 +58,8 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>, IApplication
         builder.Entity<Section>().ToTable("sections");
         builder.Entity<Enrollment>().ToTable("enrollments");
         builder.Entity<EnrollmentWaitlist>().ToTable("enrollment_waitlist");
+        builder.Entity<Grade>().ToTable("grades");
+        builder.Entity<StudentTermGpa>().ToTable("student_term_gpas");
 
         // Many-to-many relationships
         builder.Entity<CoursePrerequisite>()

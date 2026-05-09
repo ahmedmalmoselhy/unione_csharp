@@ -25,6 +25,8 @@ public interface IApplicationDbContext
     DbSet<Section> Sections { get; }
     DbSet<Enrollment> Enrollments { get; }
     DbSet<EnrollmentWaitlist> EnrollmentWaitlists { get; }
+    DbSet<Grade> Grades { get; }
+    DbSet<StudentTermGpa> StudentTermGpas { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
