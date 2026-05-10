@@ -19,5 +19,8 @@ public class User : IdentityUser<long>
     public DateTime? DeletedAt { get; set; }
 
     // Navigation properties
+    public virtual Student? Student { get; set; }
+    public virtual Professor? Professor { get; set; }
+    public virtual Employee? Employee { get; set; }
     public virtual ICollection<RoleAssignment> RoleAssignments { get; set; } = new List<RoleAssignment>();
 }

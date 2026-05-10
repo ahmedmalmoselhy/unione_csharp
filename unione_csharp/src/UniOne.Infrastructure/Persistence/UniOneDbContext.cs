@@ -31,6 +31,13 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>, IApplication
     public DbSet<EnrollmentWaitlist> EnrollmentWaitlists { get; set; }
     public DbSet<Grade> Grades { get; set; }
     public DbSet<StudentTermGpa> StudentTermGpas { get; set; }
+    public DbSet<AttendanceSession> AttendanceSessions { get; set; }
+    public DbSet<AttendanceRecord> AttendanceRecords { get; set; }
+    public DbSet<Announcement> Announcements { get; set; }
+    public DbSet<AnnouncementRead> AnnouncementReads { get; set; }
+    public DbSet<SectionAnnouncement> SectionAnnouncements { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<CourseRating> CourseRatings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -60,6 +67,13 @@ public class UniOneDbContext : IdentityDbContext<User, Role, long>, IApplication
         builder.Entity<EnrollmentWaitlist>().ToTable("enrollment_waitlist");
         builder.Entity<Grade>().ToTable("grades");
         builder.Entity<StudentTermGpa>().ToTable("student_term_gpas");
+        builder.Entity<AttendanceSession>().ToTable("attendance_sessions");
+        builder.Entity<AttendanceRecord>().ToTable("attendance_records");
+        builder.Entity<Announcement>().ToTable("announcements");
+        builder.Entity<AnnouncementRead>().ToTable("announcement_reads");
+        builder.Entity<SectionAnnouncement>().ToTable("section_announcements");
+        builder.Entity<Notification>().ToTable("notifications");
+        builder.Entity<CourseRating>().ToTable("course_ratings");
 
         // Many-to-many relationships
         builder.Entity<CoursePrerequisite>()

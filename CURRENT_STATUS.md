@@ -17,6 +17,7 @@
 - [x] Phase 3: People Management (Student, Professor, Employee CRUD, Transfer workflow, Import/Export)
 - [x] Phase 4: Academic Catalog and Enrollment (Terms, Courses, Sections, Enrollment logic with prerequisites and waitlists)
 - [x] Phase 5: Grades, GPA, Transcripts, and Schedules
+- [x] Phase 6: Attendance, Announcements, Notifications, Ratings
 
 ## Next Steps
-1. Phase 6: Attendance, Announcements, Notifications, Ratings
+1. Phase 7: Section Operations (TA assignment, Exam schedules, Group projects)
