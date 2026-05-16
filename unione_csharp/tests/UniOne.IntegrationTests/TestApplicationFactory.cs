@@ -85,7 +85,9 @@ public class TestApplicationFactory : WebApplicationFactory<Program>
             new Role { Id = 1, Name = "admin", NormalizedName = "ADMIN", Label = "Admin" },
             new Role { Id = 2, Name = "student", NormalizedName = "STUDENT", Label = "Student" },
             new Role { Id = 3, Name = "professor", NormalizedName = "PROFESSOR", Label = "Professor" },
-            new Role { Id = 4, Name = "employee", NormalizedName = "EMPLOYEE", Label = "Employee" }
+            new Role { Id = 4, Name = "employee", NormalizedName = "EMPLOYEE", Label = "Employee" },
+            new Role { Id = 5, Name = "faculty_admin", NormalizedName = "FACULTY_ADMIN", Label = "Faculty Admin" },
+            new Role { Id = 6, Name = "department_admin", NormalizedName = "DEPARTMENT_ADMIN", Label = "Department Admin" }
         };
 
         var admin = new User
@@ -146,12 +148,27 @@ public class TestApplicationFactory : WebApplicationFactory<Program>
 
         dbContext.Roles.AddRange(roles);
         dbContext.Users.Add(admin);
-        dbContext.RoleAssignments.Add(new RoleAssignment
-        {
-            UserId = admin.Id,
-            RoleId = roles[0].Id,
-            GrantedAt = DateTime.UtcNow
-        });
+        dbContext.RoleAssignments.AddRange(
+            new RoleAssignment
+            {
+                UserId = admin.Id,
+                RoleId = roles[0].Id,
+                GrantedAt = DateTime.UtcNow
+            },
+            new RoleAssignment
+            {
+                UserId = admin.Id,
+                RoleId = roles[4].Id,
+                FacultyId = faculty.Id,
+                GrantedAt = DateTime.UtcNow
+            },
+            new RoleAssignment
+            {
+                UserId = admin.Id,
+                RoleId = roles[5].Id,
+                DepartmentId = computerScience.Id,
+                GrantedAt = DateTime.UtcNow
+            });
         dbContext.Universities.Add(university);
         dbContext.Faculties.Add(faculty);
         dbContext.Departments.AddRange(computerScience, informationSystems);
@@ -169,7 +186,7 @@ public static class TestAuthConstants
 
 public class TestTokenStore : IPersonalAccessTokenRepository
 {
-    private readonly Dictionary<long, List<(long Id, string Token, string Name, DateTime CreatedAt, bool MustChangePassword, string[] Roles)>> _tokens = new();
+    private readonly Dictionary<long, List<(long Id, string Token, string Name, DateTime CreatedAt, bool MustChangePassword, string[] Roles, long[] FacultyScopes, long[] DepartmentScopes)>> _tokens = new();
     private readonly HashSet<string> _revokedTokens = [];
     private long _nextId = 1;
 
@@ -177,8 +194,13 @@ public class TestTokenStore : IPersonalAccessTokenRepository
         long userId,
         string email,
         IEnumerable<string> roles,
-        bool mustChangePassword = false)
+        bool mustChangePassword = false,
+        IEnumerable<long>? facultyScopes = null,
+        IEnumerable<long>? departmentScopes = null)
     {
+        var roleList = roles.ToArray();
+        var facultyScopeList = facultyScopes?.ToArray() ?? [];
+        var departmentScopeList = departmentScopes?.ToArray() ?? [];
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
@@ -188,7 +210,9 @@ public class TestTokenStore : IPersonalAccessTokenRepository
             new("must_change_password", mustChangePassword.ToString().ToLowerInvariant())
         };
 
-        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(roleList.Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(facultyScopeList.Select(scope => new Claim("faculty_scope", scope.ToString())));
+        claims.AddRange(departmentScopeList.Select(scope => new Claim("department_scope", scope.ToString())));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestAuthConstants.SigningKey));
         var token = new JwtSecurityToken(
@@ -199,13 +223,13 @@ public class TestTokenStore : IPersonalAccessTokenRepository
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
         var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
 
-        StoreToken(userId, "API token", accessToken, mustChangePassword, roles.ToArray());
+        StoreToken(userId, "API token", accessToken, mustChangePassword, roleList, facultyScopeList, departmentScopeList);
         return accessToken;
     }
 
     public Task StoreTokenAsync(long userId, string name, string accessToken, DateTime expiresAt)
     {
-        StoreToken(userId, name, accessToken, mustChangePassword: false, ["student"]);
+        StoreToken(userId, name, accessToken, mustChangePassword: false, ["student"], [], []);
         return Task.CompletedTask;
     }
 
@@ -285,7 +309,30 @@ public class TestTokenStore : IPersonalAccessTokenRepository
             .Roles ?? [];
     }
 
-    private void StoreToken(long userId, string name, string accessToken, bool mustChangePassword, string[] roles)
+    public long[] GetFacultyScopes(string accessToken)
+    {
+        return _tokens.Values
+            .SelectMany(tokens => tokens)
+            .FirstOrDefault(token => token.Token == accessToken)
+            .FacultyScopes ?? [];
+    }
+
+    public long[] GetDepartmentScopes(string accessToken)
+    {
+        return _tokens.Values
+            .SelectMany(tokens => tokens)
+            .FirstOrDefault(token => token.Token == accessToken)
+            .DepartmentScopes ?? [];
+    }
+
+    private void StoreToken(
+        long userId,
+        string name,
+        string accessToken,
+        bool mustChangePassword,
+        string[] roles,
+        long[] facultyScopes,
+        long[] departmentScopes)
     {
         if (!_tokens.TryGetValue(userId, out var tokens))
         {
@@ -293,7 +340,7 @@ public class TestTokenStore : IPersonalAccessTokenRepository
             _tokens[userId] = tokens;
         }
 
-        tokens.Add((_nextId++, accessToken, name, DateTime.UtcNow, mustChangePassword, roles));
+        tokens.Add((_nextId++, accessToken, name, DateTime.UtcNow, mustChangePassword, roles, facultyScopes, departmentScopes));
     }
 }
 
@@ -412,6 +459,8 @@ public class TestAuthenticationHandler : AuthenticationHandler<AuthenticationSch
             new Claim("must_change_password", _tokenStore.MustChangePassword(header.Parameter).ToString().ToLowerInvariant())
         };
         claims.AddRange(_tokenStore.GetRoles(header.Parameter).Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(_tokenStore.GetFacultyScopes(header.Parameter).Select(scope => new Claim("faculty_scope", scope.ToString())));
+        claims.AddRange(_tokenStore.GetDepartmentScopes(header.Parameter).Select(scope => new Claim("department_scope", scope.ToString())));
 
         var identity = new ClaimsIdentity(claims, SchemeName);
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName));

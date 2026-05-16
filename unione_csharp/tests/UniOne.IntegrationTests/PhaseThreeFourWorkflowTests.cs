@@ -203,6 +203,42 @@ public class PhaseThreeFourWorkflowTests : IClassFixture<TestApplicationFactory>
         problem!.Detail.Should().Contain("has not started");
     }
 
+    [Fact]
+    public async Task DepartmentAdmin_StudentListIsLimitedToAssignedDepartment()
+    {
+        var adminClient = CreateAdminClient();
+        var scopedClient = CreateDepartmentAdminClient(departmentId: 1);
+
+        var visibleStudent = await CreateStudentAsync(adminClient, "scope-visible", departmentId: 1);
+        var hiddenStudent = await CreateStudentAsync(adminClient, "scope-hidden", departmentId: 2);
+
+        var response = await scopedClient.GetAsync("/api/v1/admin/students");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var students = await response.Content.ReadFromJsonAsync<List<StudentDto>>(JsonOptions);
+        students.Should().NotBeNull();
+        students!.Select(s => s.Id).Should().Contain(visibleStudent.Id);
+        students.Select(s => s.Id).Should().NotContain(hiddenStudent.Id);
+    }
+
+    [Fact]
+    public async Task DepartmentAdmin_CannotReadOrCreateStudentsOutsideAssignedDepartment()
+    {
+        var adminClient = CreateAdminClient();
+        var scopedClient = CreateDepartmentAdminClient(departmentId: 1);
+        var hiddenStudent = await CreateStudentAsync(adminClient, "scope-denied", departmentId: 2);
+
+        var getResponse = await scopedClient.GetAsync($"/api/v1/admin/students/{hiddenStudent.Id}");
+
+        getResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var createResponse = await scopedClient.PostAsJsonAsync(
+            "/api/v1/admin/students",
+            NewStudent("scope-create-denied", departmentId: 2));
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     private HttpClient CreateAdminClient()
     {
         var client = _factory.CreateClient();
@@ -211,15 +247,27 @@ public class PhaseThreeFourWorkflowTests : IClassFixture<TestApplicationFactory>
         return client;
     }
 
-    private static CreateStudentDto NewStudent(string suffix) => new()
+    private HttpClient CreateDepartmentAdminClient(long departmentId)
+    {
+        var client = _factory.CreateClient();
+        var token = _factory.TokenStore.IssueToken(
+            TestAuthConstants.UserId,
+            "department-admin@example.com",
+            ["department_admin"],
+            departmentScopes: [departmentId]);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
+
+    private static CreateStudentDto NewStudent(string suffix, long facultyId = 1, long? departmentId = 1) => new()
     {
         Email = $"student-{suffix}@example.com",
         FirstName = suffix,
         LastName = "Student",
-        NationalId = $"NAT-STUDENT-{suffix}",
+        NationalId = $"NAT-{suffix}",
         StudentNumber = $"STU-{suffix}",
-        FacultyId = 1,
-        DepartmentId = 1,
+        FacultyId = facultyId,
+        DepartmentId = departmentId,
         AcademicYear = 1,
         Semester = Semester.First,
         EnrolledAt = new DateOnly(2026, 9, 1)
@@ -278,9 +326,9 @@ public class PhaseThreeFourWorkflowTests : IClassFixture<TestApplicationFactory>
         IsElective = false
     };
 
-    private async Task<StudentDto> CreateStudentAsync(HttpClient client, string suffix)
+    private async Task<StudentDto> CreateStudentAsync(HttpClient client, string suffix, long facultyId = 1, long? departmentId = 1)
     {
-        var response = await client.PostAsJsonAsync("/api/v1/admin/students", NewStudent(suffix));
+        var response = await client.PostAsJsonAsync("/api/v1/admin/students", NewStudent(suffix, facultyId, departmentId));
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return (await response.Content.ReadFromJsonAsync<StudentDto>(JsonOptions))!;
     }

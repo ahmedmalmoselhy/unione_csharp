@@ -40,25 +40,7 @@ public class StudentService : IStudentService
             .Include(s => s.Department)
             .AsQueryable();
 
-        // Enforce scoping
-        if (!_currentUserService.Roles.Contains("admin"))
-        {
-            var facultyIds = _currentUserService.FacultyScopeIds.ToList();
-            var departmentIds = _currentUserService.DepartmentScopeIds.ToList();
-
-            if (facultyIds.Any())
-            {
-                query = query.Where(s => facultyIds.Contains(s.FacultyId));
-            }
-            else if (departmentIds.Any())
-            {
-                query = query.Where(s => s.DepartmentId.HasValue && departmentIds.Contains(s.DepartmentId.Value));
-            }
-            else
-            {
-                return Enumerable.Empty<StudentDto>();
-            }
-        }
+        query = ApplyScope(query);
 
         if (facultyId.HasValue) query = query.Where(s => s.FacultyId == facultyId.Value);
         if (departmentId.HasValue) query = query.Where(s => s.DepartmentId == departmentId.Value);
@@ -82,12 +64,15 @@ public class StudentService : IStudentService
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (student == null) throw new KeyNotFoundException("Student not found");
+        EnsureCanAccess(student);
 
         return _mapper.ToDto(student);
     }
 
     public async Task<StudentDto> CreateStudentAsync(CreateStudentDto dto)
     {
+        EnsureCanAccess(dto.FacultyId, dto.DepartmentId);
+
         var user = new User
         {
             UserName = dto.Email,
@@ -128,6 +113,8 @@ public class StudentService : IStudentService
     {
         var student = await _context.Students.FindAsync(id);
         if (student == null) throw new KeyNotFoundException("Student not found");
+        EnsureCanAccess(student);
+        EnsureCanAccess(student.FacultyId, dto.DepartmentId);
 
         var oldValues = new
         {
@@ -160,6 +147,7 @@ public class StudentService : IStudentService
     {
         var student = await _context.Students.Include(s => s.User).FirstOrDefaultAsync(s => s.Id == id);
         if (student == null) throw new KeyNotFoundException("Student not found");
+        EnsureCanAccess(student);
 
         var user = student.User;
         _context.Students.Remove(student);
@@ -177,6 +165,8 @@ public class StudentService : IStudentService
     {
         var student = await _context.Students.FindAsync(id);
         if (student == null) throw new KeyNotFoundException("Student not found");
+        EnsureCanAccess(student);
+        EnsureCanAccess(student.FacultyId, dto.ToDepartmentId);
 
         var fromDeptId = student.DepartmentId;
         if (fromDeptId == dto.ToDepartmentId) return;
@@ -242,5 +232,60 @@ public class StudentService : IStudentService
         }
 
         return result;
+    }
+
+    private IQueryable<Student> ApplyScope(IQueryable<Student> query)
+    {
+        if (_currentUserService.Roles.Contains("admin"))
+        {
+            return query;
+        }
+
+        var facultyIds = _currentUserService.FacultyScopeIds.ToList();
+        var departmentIds = _currentUserService.DepartmentScopeIds.ToList();
+
+        if (facultyIds.Any())
+        {
+            return query.Where(s => facultyIds.Contains(s.FacultyId));
+        }
+
+        if (departmentIds.Any())
+        {
+            return query.Where(s => s.DepartmentId.HasValue && departmentIds.Contains(s.DepartmentId.Value));
+        }
+
+        return query.Where(_ => false);
+    }
+
+    private void EnsureCanAccess(Student student)
+    {
+        EnsureCanAccess(student.FacultyId, student.DepartmentId);
+    }
+
+    private void EnsureCanAccess(long facultyId, long? departmentId)
+    {
+        if (_currentUserService.Roles.Contains("admin"))
+        {
+            return;
+        }
+
+        var facultyIds = _currentUserService.FacultyScopeIds.ToList();
+        if (facultyIds.Any())
+        {
+            if (facultyIds.Contains(facultyId))
+            {
+                return;
+            }
+
+            throw new UnauthorizedAccessException("Student is outside the current faculty scope.");
+        }
+
+        var departmentIds = _currentUserService.DepartmentScopeIds.ToList();
+        if (departmentIds.Any() && departmentId.HasValue && departmentIds.Contains(departmentId.Value))
+        {
+            return;
+        }
+
+        throw new UnauthorizedAccessException("Student is outside the current department scope.");
     }
 }

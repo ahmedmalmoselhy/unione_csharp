@@ -10,7 +10,7 @@
 
 ## In Progress
 - [x] Phase 3/4 stabilization: add missing people, catalog, enrollment, and waitlist EF migrations.
-- [ ] Phase 3: People Management completion validation (baseline CRUD/transfer tests added; Import/Export and scoped tests pending)
+- [ ] Phase 3: People Management completion validation (baseline CRUD/transfer and scoped student tests added; Import/Export and broader professor/employee scoped tests pending)
 - [ ] Phase 4: Academic Catalog and Enrollment completion validation (baseline catalog/enrollment/waitlist, prerequisite, and registration-window tests added; scoped tests pending)
 - [x] Mapper warning cleanup: replaced generated organization, people, and catalog mapper methods with explicit mappings.
 
@@ -26,3 +26,4 @@
 - May 16, 2026: Added integration test infrastructure using EF Core InMemory, seeded admin roles/organization data, and baseline Phase 3/4 workflow tests for student transfer, professor/employee/catalog creation, enrollment duplicate prevention, waitlist insertion, and waitlist promotion on drop.
 - May 16, 2026: Replaced Mapperly-generated organization, people, and catalog mappings with explicit mapping code. `dotnet build` now completes with 0 warnings.
 - May 16, 2026: Added Phase 4 enrollment rule coverage for missing prerequisites and closed registration windows.
+- May 16, 2026: Enforced student service scope checks for read/create/update/delete/transfer operations, mapped scope violations to 403 responses, and added department-admin integration coverage for list/read/create behavior.

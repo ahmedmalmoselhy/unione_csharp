@@ -32,6 +32,10 @@ public class StudentController : ControllerBase
             var student = await _studentService.GetStudentByIdAsync(id);
             return Ok(student);
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
         catch (KeyNotFoundException)
         {
             return NotFound();
@@ -45,6 +49,10 @@ public class StudentController : ControllerBase
         {
             var student = await _studentService.CreateStudentAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = student.Id }, student);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (InvalidOperationException ex)
         {
@@ -60,6 +68,10 @@ public class StudentController : ControllerBase
             var student = await _studentService.UpdateStudentAsync(id, dto);
             return Ok(student);
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
         catch (KeyNotFoundException)
         {
             return NotFound();
@@ -74,6 +86,10 @@ public class StudentController : ControllerBase
             await _studentService.DeleteStudentAsync(id);
             return NoContent();
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
         catch (KeyNotFoundException)
         {
             return NotFound();
@@ -87,6 +103,10 @@ public class StudentController : ControllerBase
         {
             await _studentService.TransferStudentAsync(id, dto);
             return NoContent();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (KeyNotFoundException)
         {
