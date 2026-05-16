@@ -12,6 +12,7 @@ public class ProfessorService : IProfessorService
 {
     private readonly IApplicationDbContext _context;
     private readonly UserManager<User> _userManager;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLog;
     private readonly IImportExportService _importExport;
     private readonly PeopleMapper _mapper;
@@ -19,11 +20,13 @@ public class ProfessorService : IProfessorService
     public ProfessorService(
         IApplicationDbContext context,
         UserManager<User> userManager,
+        ICurrentUserService currentUserService,
         IAuditLogService auditLog,
         IImportExportService importExport)
     {
         _context = context;
         _userManager = userManager;
+        _currentUserService = currentUserService;
         _auditLog = auditLog;
         _importExport = importExport;
         _mapper = new PeopleMapper();
@@ -35,6 +38,8 @@ public class ProfessorService : IProfessorService
             .Include(p => p.User)
             .Include(p => p.Department)
             .AsQueryable();
+
+        query = ApplyScope(query);
 
         if (departmentId.HasValue) query = query.Where(p => p.DepartmentId == departmentId.Value);
         if (!string.IsNullOrEmpty(search))
@@ -56,12 +61,15 @@ public class ProfessorService : IProfessorService
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (professor == null) throw new KeyNotFoundException("Professor not found");
+        EnsureCanAccess(professor);
 
         return _mapper.ToDto(professor);
     }
 
     public async Task<ProfessorDto> CreateProfessorAsync(CreateProfessorDto dto)
     {
+        await EnsureCanAccessDepartmentAsync(dto.DepartmentId);
+
         var user = new User
         {
             UserName = dto.Email,
@@ -100,8 +108,10 @@ public class ProfessorService : IProfessorService
 
     public async Task<ProfessorDto> UpdateProfessorAsync(long id, UpdateProfessorDto dto)
     {
-        var professor = await _context.Professors.FindAsync(id);
+        var professor = await _context.Professors.Include(p => p.Department).FirstOrDefaultAsync(p => p.Id == id);
         if (professor == null) throw new KeyNotFoundException("Professor not found");
+        EnsureCanAccess(professor);
+        await EnsureCanAccessDepartmentAsync(dto.DepartmentId);
 
         var oldValues = new
         {
@@ -130,8 +140,12 @@ public class ProfessorService : IProfessorService
 
     public async Task DeleteProfessorAsync(long id)
     {
-        var professor = await _context.Professors.Include(p => p.User).FirstOrDefaultAsync(p => p.Id == id);
+        var professor = await _context.Professors
+            .Include(p => p.User)
+            .Include(p => p.Department)
+            .FirstOrDefaultAsync(p => p.Id == id);
         if (professor == null) throw new KeyNotFoundException("Professor not found");
+        EnsureCanAccess(professor);
 
         var user = professor.User;
         _context.Professors.Remove(professor);
@@ -180,5 +194,88 @@ public class ProfessorService : IProfessorService
         }
 
         return result;
+    }
+
+    private IQueryable<Professor> ApplyScope(IQueryable<Professor> query)
+    {
+        if (_currentUserService.Roles.Contains("admin"))
+        {
+            return query;
+        }
+
+        var facultyIds = _currentUserService.FacultyScopeIds.ToList();
+        var departmentIds = _currentUserService.DepartmentScopeIds.ToList();
+
+        if (facultyIds.Any())
+        {
+            return query.Where(p => p.Department.FacultyId.HasValue && facultyIds.Contains(p.Department.FacultyId.Value));
+        }
+
+        if (departmentIds.Any())
+        {
+            return query.Where(p => departmentIds.Contains(p.DepartmentId));
+        }
+
+        return query.Where(_ => false);
+    }
+
+    private void EnsureCanAccess(Professor professor)
+    {
+        if (_currentUserService.Roles.Contains("admin"))
+        {
+            return;
+        }
+
+        var facultyIds = _currentUserService.FacultyScopeIds.ToList();
+        if (facultyIds.Any())
+        {
+            if (professor.Department.FacultyId.HasValue && facultyIds.Contains(professor.Department.FacultyId.Value))
+            {
+                return;
+            }
+
+            throw new UnauthorizedAccessException("Professor is outside the current faculty scope.");
+        }
+
+        var departmentIds = _currentUserService.DepartmentScopeIds.ToList();
+        if (departmentIds.Any() && departmentIds.Contains(professor.DepartmentId))
+        {
+            return;
+        }
+
+        throw new UnauthorizedAccessException("Professor is outside the current department scope.");
+    }
+
+    private async Task EnsureCanAccessDepartmentAsync(long departmentId)
+    {
+        if (_currentUserService.Roles.Contains("admin"))
+        {
+            return;
+        }
+
+        var department = await _context.Departments.FirstOrDefaultAsync(d => d.Id == departmentId);
+        if (department == null)
+        {
+            throw new InvalidOperationException("Department not found");
+        }
+
+        var facultyIds = _currentUserService.FacultyScopeIds.ToList();
+        if (facultyIds.Any())
+        {
+            if (department.FacultyId.HasValue && facultyIds.Contains(department.FacultyId.Value))
+            {
+                return;
+            }
+
+            throw new UnauthorizedAccessException("Department is outside the current faculty scope.");
+        }
+
+        var departmentIds = _currentUserService.DepartmentScopeIds.ToList();
+        if (departmentIds.Any() && departmentIds.Contains(departmentId))
+        {
+            return;
+        }
+
+        throw new UnauthorizedAccessException("Department is outside the current department scope.");
     }
 }

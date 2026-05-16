@@ -32,6 +32,10 @@ public class ProfessorController : ControllerBase
             var professor = await _professorService.GetProfessorByIdAsync(id);
             return Ok(professor);
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
         catch (KeyNotFoundException)
         {
             return NotFound();
@@ -45,6 +49,10 @@ public class ProfessorController : ControllerBase
         {
             var professor = await _professorService.CreateProfessorAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = professor.Id }, professor);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (InvalidOperationException ex)
         {
@@ -60,6 +68,10 @@ public class ProfessorController : ControllerBase
             var professor = await _professorService.UpdateProfessorAsync(id, dto);
             return Ok(professor);
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
         catch (KeyNotFoundException)
         {
             return NotFound();
@@ -73,6 +85,10 @@ public class ProfessorController : ControllerBase
         {
             await _professorService.DeleteProfessorAsync(id);
             return NoContent();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (KeyNotFoundException)
         {

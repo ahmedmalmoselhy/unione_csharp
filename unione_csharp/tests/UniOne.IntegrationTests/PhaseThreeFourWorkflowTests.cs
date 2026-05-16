@@ -239,6 +239,59 @@ public class PhaseThreeFourWorkflowTests : IClassFixture<TestApplicationFactory>
         createResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    [Fact]
+    public async Task DepartmentAdmin_PeopleListsAreLimitedToAssignedDepartment()
+    {
+        var adminClient = CreateAdminClient();
+        var scopedClient = CreateDepartmentAdminClient(departmentId: 1);
+
+        var visibleProfessor = await CreateProfessorAsync(adminClient, "scope-prof-visible", departmentId: 1);
+        var hiddenProfessor = await CreateProfessorAsync(adminClient, "scope-prof-hidden", departmentId: 2);
+        var visibleEmployee = await CreateEmployeeAsync(adminClient, "scope-emp-visible", departmentId: 1);
+        var hiddenEmployee = await CreateEmployeeAsync(adminClient, "scope-emp-hidden", departmentId: 2);
+
+        var professorResponse = await scopedClient.GetAsync("/api/v1/admin/professors");
+        var employeeResponse = await scopedClient.GetAsync("/api/v1/admin/employees");
+
+        professorResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        employeeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var professors = await professorResponse.Content.ReadFromJsonAsync<List<ProfessorDto>>(JsonOptions);
+        var employees = await employeeResponse.Content.ReadFromJsonAsync<List<EmployeeDto>>(JsonOptions);
+
+        professors.Should().NotBeNull();
+        professors!.Select(p => p.Id).Should().Contain(visibleProfessor.Id);
+        professors.Select(p => p.Id).Should().NotContain(hiddenProfessor.Id);
+
+        employees.Should().NotBeNull();
+        employees!.Select(e => e.Id).Should().Contain(visibleEmployee.Id);
+        employees.Select(e => e.Id).Should().NotContain(hiddenEmployee.Id);
+    }
+
+    [Fact]
+    public async Task DepartmentAdmin_CannotReadOrCreatePeopleOutsideAssignedDepartment()
+    {
+        var adminClient = CreateAdminClient();
+        var scopedClient = CreateDepartmentAdminClient(departmentId: 1);
+
+        var hiddenProfessor = await CreateProfessorAsync(adminClient, "scope-prof-denied", departmentId: 2);
+        var hiddenEmployee = await CreateEmployeeAsync(adminClient, "scope-emp-denied", departmentId: 2);
+
+        var getProfessorResponse = await scopedClient.GetAsync($"/api/v1/admin/professors/{hiddenProfessor.Id}");
+        var getEmployeeResponse = await scopedClient.GetAsync($"/api/v1/admin/employees/{hiddenEmployee.Id}");
+        var createProfessorResponse = await scopedClient.PostAsJsonAsync(
+            "/api/v1/admin/professors",
+            NewProfessor("scope-prof-create-denied", departmentId: 2));
+        var createEmployeeResponse = await scopedClient.PostAsJsonAsync(
+            "/api/v1/admin/employees",
+            NewEmployee("scope-emp-create-denied", departmentId: 2));
+
+        getProfessorResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        getEmployeeResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        createProfessorResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        createEmployeeResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     private HttpClient CreateAdminClient()
     {
         var client = _factory.CreateClient();
@@ -273,28 +326,28 @@ public class PhaseThreeFourWorkflowTests : IClassFixture<TestApplicationFactory>
         EnrolledAt = new DateOnly(2026, 9, 1)
     };
 
-    private static CreateProfessorDto NewProfessor(string suffix) => new()
+    private static CreateProfessorDto NewProfessor(string suffix, long departmentId = 1) => new()
     {
         Email = $"professor-{suffix}@example.com",
         FirstName = suffix,
         LastName = "Professor",
-        NationalId = $"NAT-PROFESSOR-{suffix}",
+        NationalId = $"NAT-P-{suffix}",
         StaffNumber = $"PROF-{suffix}",
-        DepartmentId = 1,
+        DepartmentId = departmentId,
         Specialization = "Computer Science",
         AcademicRank = AcademicRank.Lecturer,
         OfficeLocation = "A-100",
         HiredAt = new DateOnly(2020, 9, 1)
     };
 
-    private static CreateEmployeeDto NewEmployee(string suffix) => new()
+    private static CreateEmployeeDto NewEmployee(string suffix, long departmentId = 1) => new()
     {
         Email = $"employee-{suffix}@example.com",
         FirstName = suffix,
         LastName = "Employee",
-        NationalId = $"NAT-EMPLOYEE-{suffix}",
+        NationalId = $"NAT-E-{suffix}",
         StaffNumber = $"EMP-{suffix}",
-        DepartmentId = 1,
+        DepartmentId = departmentId,
         JobTitle = "Coordinator",
         EmploymentType = EmploymentType.FullTime,
         Salary = 1500,
@@ -333,11 +386,18 @@ public class PhaseThreeFourWorkflowTests : IClassFixture<TestApplicationFactory>
         return (await response.Content.ReadFromJsonAsync<StudentDto>(JsonOptions))!;
     }
 
-    private async Task<ProfessorDto> CreateProfessorAsync(HttpClient client, string suffix)
+    private async Task<ProfessorDto> CreateProfessorAsync(HttpClient client, string suffix, long departmentId = 1)
     {
-        var response = await client.PostAsJsonAsync("/api/v1/admin/professors", NewProfessor(suffix));
+        var response = await client.PostAsJsonAsync("/api/v1/admin/professors", NewProfessor(suffix, departmentId));
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return (await response.Content.ReadFromJsonAsync<ProfessorDto>(JsonOptions))!;
+    }
+
+    private async Task<EmployeeDto> CreateEmployeeAsync(HttpClient client, string suffix, long departmentId = 1)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/admin/employees", NewEmployee(suffix, departmentId));
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<EmployeeDto>(JsonOptions))!;
     }
 
     private async Task<AcademicTermDto> CreateTermAsync(

@@ -32,6 +32,10 @@ public class EmployeeController : ControllerBase
             var employee = await _employeeService.GetEmployeeByIdAsync(id);
             return Ok(employee);
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
         catch (KeyNotFoundException)
         {
             return NotFound();
@@ -45,6 +49,10 @@ public class EmployeeController : ControllerBase
         {
             var employee = await _employeeService.CreateEmployeeAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = employee.Id }, employee);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (InvalidOperationException ex)
         {
@@ -60,6 +68,10 @@ public class EmployeeController : ControllerBase
             var employee = await _employeeService.UpdateEmployeeAsync(id, dto);
             return Ok(employee);
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
         catch (KeyNotFoundException)
         {
             return NotFound();
@@ -73,6 +85,10 @@ public class EmployeeController : ControllerBase
         {
             await _employeeService.DeleteEmployeeAsync(id);
             return NoContent();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (KeyNotFoundException)
         {

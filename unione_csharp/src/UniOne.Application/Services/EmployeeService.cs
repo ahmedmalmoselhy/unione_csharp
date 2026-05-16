@@ -11,6 +11,7 @@ public class EmployeeService : IEmployeeService
 {
     private readonly IApplicationDbContext _context;
     private readonly UserManager<User> _userManager;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLog;
     private readonly IImportExportService _importExport;
     private readonly PeopleMapper _mapper;
@@ -18,11 +19,13 @@ public class EmployeeService : IEmployeeService
     public EmployeeService(
         IApplicationDbContext context,
         UserManager<User> userManager,
+        ICurrentUserService currentUserService,
         IAuditLogService auditLog,
         IImportExportService importExport)
     {
         _context = context;
         _userManager = userManager;
+        _currentUserService = currentUserService;
         _auditLog = auditLog;
         _importExport = importExport;
         _mapper = new PeopleMapper();
@@ -34,6 +37,8 @@ public class EmployeeService : IEmployeeService
             .Include(e => e.User)
             .Include(e => e.Department)
             .AsQueryable();
+
+        query = ApplyScope(query);
 
         if (departmentId.HasValue) query = query.Where(e => e.DepartmentId == departmentId.Value);
         if (!string.IsNullOrEmpty(search))
@@ -55,12 +60,15 @@ public class EmployeeService : IEmployeeService
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (employee == null) throw new KeyNotFoundException("Employee not found");
+        EnsureCanAccess(employee);
 
         return _mapper.ToDto(employee);
     }
 
     public async Task<EmployeeDto> CreateEmployeeAsync(CreateEmployeeDto dto)
     {
+        await EnsureCanAccessDepartmentAsync(dto.DepartmentId);
+
         var user = new User
         {
             UserName = dto.Email,
@@ -99,8 +107,10 @@ public class EmployeeService : IEmployeeService
 
     public async Task<EmployeeDto> UpdateEmployeeAsync(long id, UpdateEmployeeDto dto)
     {
-        var employee = await _context.Employees.FindAsync(id);
+        var employee = await _context.Employees.Include(e => e.Department).FirstOrDefaultAsync(e => e.Id == id);
         if (employee == null) throw new KeyNotFoundException("Employee not found");
+        EnsureCanAccess(employee);
+        await EnsureCanAccessDepartmentAsync(dto.DepartmentId);
 
         var oldValues = new
         {
@@ -130,8 +140,12 @@ public class EmployeeService : IEmployeeService
 
     public async Task DeleteEmployeeAsync(long id)
     {
-        var employee = await _context.Employees.Include(e => e.User).FirstOrDefaultAsync(e => e.Id == id);
+        var employee = await _context.Employees
+            .Include(e => e.User)
+            .Include(e => e.Department)
+            .FirstOrDefaultAsync(e => e.Id == id);
         if (employee == null) throw new KeyNotFoundException("Employee not found");
+        EnsureCanAccess(employee);
 
         var user = employee.User;
         _context.Employees.Remove(employee);
@@ -149,5 +163,88 @@ public class EmployeeService : IEmployeeService
     {
         var employees = await GetAllEmployeesAsync(departmentId);
         return await _importExport.ExportToExcelAsync(employees, "Employees");
+    }
+
+    private IQueryable<Employee> ApplyScope(IQueryable<Employee> query)
+    {
+        if (_currentUserService.Roles.Contains("admin"))
+        {
+            return query;
+        }
+
+        var facultyIds = _currentUserService.FacultyScopeIds.ToList();
+        var departmentIds = _currentUserService.DepartmentScopeIds.ToList();
+
+        if (facultyIds.Any())
+        {
+            return query.Where(e => e.Department.FacultyId.HasValue && facultyIds.Contains(e.Department.FacultyId.Value));
+        }
+
+        if (departmentIds.Any())
+        {
+            return query.Where(e => departmentIds.Contains(e.DepartmentId));
+        }
+
+        return query.Where(_ => false);
+    }
+
+    private void EnsureCanAccess(Employee employee)
+    {
+        if (_currentUserService.Roles.Contains("admin"))
+        {
+            return;
+        }
+
+        var facultyIds = _currentUserService.FacultyScopeIds.ToList();
+        if (facultyIds.Any())
+        {
+            if (employee.Department.FacultyId.HasValue && facultyIds.Contains(employee.Department.FacultyId.Value))
+            {
+                return;
+            }
+
+            throw new UnauthorizedAccessException("Employee is outside the current faculty scope.");
+        }
+
+        var departmentIds = _currentUserService.DepartmentScopeIds.ToList();
+        if (departmentIds.Any() && departmentIds.Contains(employee.DepartmentId))
+        {
+            return;
+        }
+
+        throw new UnauthorizedAccessException("Employee is outside the current department scope.");
+    }
+
+    private async Task EnsureCanAccessDepartmentAsync(long departmentId)
+    {
+        if (_currentUserService.Roles.Contains("admin"))
+        {
+            return;
+        }
+
+        var department = await _context.Departments.FirstOrDefaultAsync(d => d.Id == departmentId);
+        if (department == null)
+        {
+            throw new InvalidOperationException("Department not found");
+        }
+
+        var facultyIds = _currentUserService.FacultyScopeIds.ToList();
+        if (facultyIds.Any())
+        {
+            if (department.FacultyId.HasValue && facultyIds.Contains(department.FacultyId.Value))
+            {
+                return;
+            }
+
+            throw new UnauthorizedAccessException("Department is outside the current faculty scope.");
+        }
+
+        var departmentIds = _currentUserService.DepartmentScopeIds.ToList();
+        if (departmentIds.Any() && departmentIds.Contains(departmentId))
+        {
+            return;
+        }
+
+        throw new UnauthorizedAccessException("Department is outside the current department scope.");
     }
 }
