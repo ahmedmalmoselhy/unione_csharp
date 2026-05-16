@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using UniOne.Application.DTOs;
@@ -144,6 +145,64 @@ public class PhaseThreeFourWorkflowTests : IClassFixture<TestApplicationFactory>
         (await verificationDbContext.EnrollmentWaitlists.AnyAsync()).Should().BeFalse();
     }
 
+    [Fact]
+    public async Task Admin_EnrollmentRejectsMissingPrerequisites()
+    {
+        var client = CreateAdminClient();
+        var student = await CreateStudentAsync(client, "prereq");
+        var professor = await CreateProfessorAsync(client, "prereq");
+        var term = await CreateTermAsync(client, "2028-2029");
+        var prerequisiteCourse = await CreateCourseAsync(client, "CS101");
+        var targetCourse = await CreateCourseAsync(client, "CS401");
+        var section = await CreateSectionAsync(client, targetCourse.Id, professor.Id, term.Id, capacity: 20);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<UniOneDbContext>();
+            dbContext.CoursePrerequisites.Add(new()
+            {
+                CourseId = targetCourse.Id,
+                PrerequisiteId = prerequisiteCourse.Id
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/admin/enrollments",
+            new CreateEnrollmentDto { StudentId = student.Id, SectionId = section.Id });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        using var verificationScope = _factory.Services.CreateScope();
+        var verificationDbContext = verificationScope.ServiceProvider.GetRequiredService<UniOneDbContext>();
+        (await verificationDbContext.Enrollments.AnyAsync(e => e.StudentId == student.Id)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Admin_EnrollmentRejectsSectionsOutsideRegistrationWindow()
+    {
+        var client = CreateAdminClient();
+        var student = await CreateStudentAsync(client, "closed-window");
+        var professor = await CreateProfessorAsync(client, "closed-window");
+        var course = await CreateCourseAsync(client, "CS402");
+        var term = await CreateTermAsync(
+            client,
+            "2029-2030",
+            registrationStartsAt: DateTime.UtcNow.AddDays(10),
+            registrationEndsAt: DateTime.UtcNow.AddDays(20));
+        var section = await CreateSectionAsync(client, course.Id, professor.Id, term.Id, capacity: 20);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/admin/enrollments",
+            new CreateEnrollmentDto { StudentId = student.Id, SectionId = section.Id });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problem.Should().NotBeNull();
+        problem!.Detail.Should().Contain("has not started");
+    }
+
     private HttpClient CreateAdminClient()
     {
         var client = _factory.CreateClient();
@@ -194,15 +253,18 @@ public class PhaseThreeFourWorkflowTests : IClassFixture<TestApplicationFactory>
         HiredAt = new DateOnly(2021, 1, 1)
     };
 
-    private static CreateAcademicTermDto NewTerm(string academicYear) => new()
+    private static CreateAcademicTermDto NewTerm(
+        string academicYear,
+        DateTime? registrationStartsAt = null,
+        DateTime? registrationEndsAt = null) => new()
     {
         Name = $"Fall {academicYear}",
         AcademicYear = academicYear,
         Semester = Semester.First,
         StartsAt = new DateOnly(2026, 9, 1),
         EndsAt = new DateOnly(2027, 1, 15),
-        RegistrationStartsAt = DateTime.UtcNow.AddDays(-7),
-        RegistrationEndsAt = DateTime.UtcNow.AddDays(30)
+        RegistrationStartsAt = registrationStartsAt ?? DateTime.UtcNow.AddDays(-7),
+        RegistrationEndsAt = registrationEndsAt ?? DateTime.UtcNow.AddDays(30)
     };
 
     private static CreateCourseDto NewCourse(string code) => new()
@@ -230,9 +292,15 @@ public class PhaseThreeFourWorkflowTests : IClassFixture<TestApplicationFactory>
         return (await response.Content.ReadFromJsonAsync<ProfessorDto>(JsonOptions))!;
     }
 
-    private async Task<AcademicTermDto> CreateTermAsync(HttpClient client, string academicYear)
+    private async Task<AcademicTermDto> CreateTermAsync(
+        HttpClient client,
+        string academicYear,
+        DateTime? registrationStartsAt = null,
+        DateTime? registrationEndsAt = null)
     {
-        var response = await client.PostAsJsonAsync("/api/v1/admin/catalog/terms", NewTerm(academicYear));
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/admin/catalog/terms",
+            NewTerm(academicYear, registrationStartsAt, registrationEndsAt));
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return (await response.Content.ReadFromJsonAsync<AcademicTermDto>(JsonOptions))!;
     }
