@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -15,6 +17,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using UniOne.Application.Contracts;
 using UniOne.Application.DTOs;
+using UniOne.Domain.Entities;
+using UniOne.Domain.Enums;
+using UniOne.Infrastructure.Persistence;
 
 namespace UniOne.IntegrationTests;
 
@@ -38,8 +43,17 @@ public class TestApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
+            var databaseName = $"unione-integration-{Guid.NewGuid()}";
+
+            services.RemoveAll<DbContextOptions<UniOneDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<UniOneDbContext>>();
+            services.RemoveAll<IApplicationDbContext>();
             services.RemoveAll<IIdentityService>();
             services.RemoveAll<IPersonalAccessTokenRepository>();
+
+            services.AddDbContext<UniOneDbContext>(options =>
+                options.UseInMemoryDatabase(databaseName));
+            services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<UniOneDbContext>());
 
             services.AddSingleton(TokenStore);
             services.AddSingleton<IPersonalAccessTokenRepository>(TokenStore);
@@ -53,7 +67,95 @@ public class TestApplicationFactory : WebApplicationFactory<Program>
             .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
                 TestAuthenticationHandler.SchemeName,
                 _ => { });
+
+            using var provider = services.BuildServiceProvider();
+            using var scope = provider.CreateScope();
+            SeedDatabase(scope.ServiceProvider);
         });
+    }
+
+    private static void SeedDatabase(IServiceProvider serviceProvider)
+    {
+        var dbContext = serviceProvider.GetRequiredService<UniOneDbContext>();
+        dbContext.Database.EnsureDeleted();
+        dbContext.Database.EnsureCreated();
+
+        var roles = new[]
+        {
+            new Role { Id = 1, Name = "admin", NormalizedName = "ADMIN", Label = "Admin" },
+            new Role { Id = 2, Name = "student", NormalizedName = "STUDENT", Label = "Student" },
+            new Role { Id = 3, Name = "professor", NormalizedName = "PROFESSOR", Label = "Professor" },
+            new Role { Id = 4, Name = "employee", NormalizedName = "EMPLOYEE", Label = "Employee" }
+        };
+
+        var admin = new User
+        {
+            Id = TestAuthConstants.UserId,
+            UserName = "admin@example.com",
+            NormalizedUserName = "ADMIN@EXAMPLE.COM",
+            Email = "admin@example.com",
+            NormalizedEmail = "ADMIN@EXAMPLE.COM",
+            FirstName = "Test",
+            LastName = "Admin",
+            NationalId = "NAT-ADMIN",
+            Gender = Gender.Male,
+            IsActive = true
+        };
+
+        var university = new University
+        {
+            Id = 1,
+            Name = "UniOne University",
+            NameAr = "UniOne University",
+            Address = "Main Campus"
+        };
+
+        var faculty = new Faculty
+        {
+            Id = 1,
+            Name = "Engineering",
+            NameAr = "Engineering",
+            Code = "ENG",
+            EnrollmentType = EnrollmentType.Immediate,
+            IsActive = true
+        };
+
+        var computerScience = new Department
+        {
+            Id = 1,
+            FacultyId = faculty.Id,
+            Name = "Computer Science",
+            NameAr = "Computer Science",
+            Code = "CS",
+            Type = DepartmentType.Academic,
+            Scope = DepartmentScope.Faculty,
+            IsActive = true
+        };
+
+        var informationSystems = new Department
+        {
+            Id = 2,
+            FacultyId = faculty.Id,
+            Name = "Information Systems",
+            NameAr = "Information Systems",
+            Code = "IS",
+            Type = DepartmentType.Academic,
+            Scope = DepartmentScope.Faculty,
+            IsActive = true
+        };
+
+        dbContext.Roles.AddRange(roles);
+        dbContext.Users.Add(admin);
+        dbContext.RoleAssignments.Add(new RoleAssignment
+        {
+            UserId = admin.Id,
+            RoleId = roles[0].Id,
+            GrantedAt = DateTime.UtcNow
+        });
+        dbContext.Universities.Add(university);
+        dbContext.Faculties.Add(faculty);
+        dbContext.Departments.AddRange(computerScience, informationSystems);
+        dbContext.SaveChanges();
     }
 }
 
@@ -67,7 +169,7 @@ public static class TestAuthConstants
 
 public class TestTokenStore : IPersonalAccessTokenRepository
 {
-    private readonly Dictionary<long, List<(long Id, string Token, string Name, DateTime CreatedAt, bool MustChangePassword)>> _tokens = new();
+    private readonly Dictionary<long, List<(long Id, string Token, string Name, DateTime CreatedAt, bool MustChangePassword, string[] Roles)>> _tokens = new();
     private readonly HashSet<string> _revokedTokens = [];
     private long _nextId = 1;
 
@@ -97,13 +199,13 @@ public class TestTokenStore : IPersonalAccessTokenRepository
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
         var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
 
-        StoreToken(userId, "API token", accessToken, mustChangePassword);
+        StoreToken(userId, "API token", accessToken, mustChangePassword, roles.ToArray());
         return accessToken;
     }
 
     public Task StoreTokenAsync(long userId, string name, string accessToken, DateTime expiresAt)
     {
-        StoreToken(userId, name, accessToken, mustChangePassword: false);
+        StoreToken(userId, name, accessToken, mustChangePassword: false, ["student"]);
         return Task.CompletedTask;
     }
 
@@ -175,7 +277,15 @@ public class TestTokenStore : IPersonalAccessTokenRepository
             .MustChangePassword;
     }
 
-    private void StoreToken(long userId, string name, string accessToken, bool mustChangePassword)
+    public string[] GetRoles(string accessToken)
+    {
+        return _tokens.Values
+            .SelectMany(tokens => tokens)
+            .FirstOrDefault(token => token.Token == accessToken)
+            .Roles ?? [];
+    }
+
+    private void StoreToken(long userId, string name, string accessToken, bool mustChangePassword, string[] roles)
     {
         if (!_tokens.TryGetValue(userId, out var tokens))
         {
@@ -183,7 +293,7 @@ public class TestTokenStore : IPersonalAccessTokenRepository
             _tokens[userId] = tokens;
         }
 
-        tokens.Add((_nextId++, accessToken, name, DateTime.UtcNow, mustChangePassword));
+        tokens.Add((_nextId++, accessToken, name, DateTime.UtcNow, mustChangePassword, roles));
     }
 }
 
@@ -296,12 +406,13 @@ public class TestAuthenticationHandler : AuthenticationHandler<AuthenticationSch
             return AuthenticateResult.Fail("Token has been revoked.");
         }
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, TestAuthConstants.UserId.ToString()),
-            new Claim(ClaimTypes.Role, "student"),
             new Claim("must_change_password", _tokenStore.MustChangePassword(header.Parameter).ToString().ToLowerInvariant())
         };
+        claims.AddRange(_tokenStore.GetRoles(header.Parameter).Select(role => new Claim(ClaimTypes.Role, role)));
+
         var identity = new ClaimsIdentity(claims, SchemeName);
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName));
     }
